@@ -37,6 +37,9 @@ def best_model(df_historical: pd.DataFrame, test_p: int, pred_p: int, error_peri
     model_data = {}
     last_errors = []
 
+    if test_p == 1:
+        test_p = 2
+
     try:
         seasonal_order_value = int(seasonal_periods)
     except ValueError:
