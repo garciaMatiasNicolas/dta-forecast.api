@@ -1,7 +1,5 @@
 from pathlib import Path
-from dotenv import load_dotenv
 import os
-load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -13,7 +11,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG')
 
-ALLOWED_HOSTS = ['dtaforecast.vercel.app']
+ALLOWED_HOSTS = ['dtaforecast.vercel.app', '*']
 
 # Application definition
 BASE_APPS = [
@@ -45,7 +43,6 @@ THIRD_APPS = [
     'plotly',
     'prophet',
     'sklearn',
-    'python-dotenv'
 ]
 
 INSTALLED_APPS = BASE_APPS + LOCAL_APPS + THIRD_APPS
@@ -106,7 +103,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "https://dtaforecast.vercel.app/",
+    "https://dtaforecast.vercel.app",
 ]
 
 # Password validation
