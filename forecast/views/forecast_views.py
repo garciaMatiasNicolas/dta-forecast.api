@@ -124,7 +124,7 @@ class RunModelsViews(APIView):
                                                    len(column)) + 2
                                 work_sheet.set_column(i, i, width_column)
 
-                        file_path = os.path.join(settings.MEDIA_ROOT, 'excel_files\\predictions',
+                        file_path = os.path.join(settings.MEDIA_ROOT, 'excel_files/predictions',
                                                  f'{table_name}_prediction_results_scenario_{scenario_name}.xlsx')
 
                         # Generate graphical predictions
