@@ -1,6 +1,0 @@
-migrations
-db.sqlite3
-venv
-.env
-*.xlsx
-__pycache__
