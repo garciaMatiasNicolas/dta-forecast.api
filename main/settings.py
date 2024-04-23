@@ -102,6 +102,21 @@ CORS_ALLOWED_ORIGINS = [
     "https://dtaforecast.vercel.app",
 ]
 
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'OPTIONS',  
+    'DELETE',
+    'PUT'
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    'Content-Type',  
+    'Authorization',  
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
