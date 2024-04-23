@@ -21,7 +21,7 @@ class UserAuthenticationViews:
             if user:
                 user.email_is_confirmed = True
                 user.save()
-                return redirect("http://localhost:3000/confirmation")
+                return redirect("https://dtaforecast.vercel.app/confirmation")
 
     class LogInView(ObtainAuthToken):
         def post(self, request, *args, **kwargs):

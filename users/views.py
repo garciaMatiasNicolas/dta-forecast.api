@@ -31,7 +31,7 @@ class UserViews:
                 user = user_serializer.save()
                 email = user.email
                 user_pk = user.id
-                message = f"Para confirmar tu mail ingresa a este link: http://localhost:8000/{reverse(viewname='confirm_mail', args=[user_pk])}"
+                message = f"Para confirmar tu mail ingresa a este link: https://apifio.dtalogistica.com/{reverse(viewname='confirm_mail', args=[user_pk])}"
 
                 def send_email() -> None:
                     send_mail(
