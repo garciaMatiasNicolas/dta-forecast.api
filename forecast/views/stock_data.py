@@ -11,6 +11,7 @@ from database.db_engine import engine
 from django.db import connection
 import pandas as pd
 import numpy as np
+import math
 from scipy.special import erfinv
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -21,7 +22,7 @@ class StockDataView(APIView):
 
     # -- METHODS FOR GET DATA FROM DB -- #
     @staticmethod
-    def get_data(project_pk: int, scenario: int = None):
+    def get_data(project_pk: int, only_traffic_light: bool, scenario: int = None, filter_name: str = None, filter_value: str = None):
         max_historical_date = ""
 
         if scenario:
@@ -33,6 +34,9 @@ class StockDataView(APIView):
         
             else:
                 query = f"SELECT * FROM {forecast_data.predictions_table_name} WHERE model != 'actual'"
+                if only_traffic_light and filter_name and filter_value:
+                    query += f" AND {filter_name} = '{filter_value}'"
+                
                 table_forecast = pd.read_sql_query(query, engine)
         
         else:
@@ -49,6 +53,12 @@ class StockDataView(APIView):
             raise ValueError("Stock_data_not_found")
 
         table_stock = pd.read_sql_table(table_name=stock_data.file_name, con=engine)
+
+        if only_traffic_light:
+            print(filter_name)
+            print(filter_value)
+            table_historical = table_historical[table_historical[filter_name] == filter_value]
+            table_stock = table_stock[table_stock[filter_name] == filter_value]
 
         tables = {"historical": table_historical, "stock": table_stock, "forecast": table_forecast}
 
@@ -180,29 +190,36 @@ class StockDataView(APIView):
                     return False
 
             return True
+        
+        def round_up(n, dec):
+            factor = 10 ** dec
+            return math.ceil(n * factor) / factor
 
         safety_stock_is_zero = verify_safety_stock_zero(data)
 
         results = []
 
         abc = self.calculate_abc(products=data, is_forecast=is_forecast)
-        abc_dict = {product['SKU']: product['SKU'] for product in abc}
+        abc_dict = {product['SKU']: product['ABC'] for product in abc}
 
         for item in data:
+            abc_class = abc_dict.get(str(item['SKU']), 'N/A')
             avg_sales_historical = float(item["avg_sales_per_day_historical"])
             price = float(item['Price'])
             avg_sales_forecast = float(item["avg_sales_per_day_forecast"]) 
             avg_sales = float(item[f'avg_sales_per_day_{"forecast" if is_forecast else "historical"}'])
-            available_stock = float(item['Available Stock'])
+            available_stock = float(item['Stock']) - float(item['Sales Order Pending Deliverys'])# float(item["Available Stock"]) 
             lead_time = int(item['Lead Time'])
-            safety_stock = int(item['Safety stock'])
+            safety_stock = int(item['Safety stock (days)'])
             reorder_point = next_buy_days + lead_time + safety_stock
             days_of_coverage = round(available_stock / avg_sales) if avg_sales != 0 else 9999
             buy = 'Si' if (days_of_coverage - reorder_point) < 1 else 'No'
-            optimal_batch = float(item["Optimal Batch"])
+            optimal_batch = float(item["EOQ (Economical order quantity)"])
             how_much = max(optimal_batch, (next_buy_days + lead_time + safety_stock - days_of_coverage) * avg_sales ) if buy == 'Si' else 0
             overflow_units = available_stock if avg_sales == 0 else (0 if days_of_coverage - reorder_point < 0 else round((days_of_coverage - reorder_point)*avg_sales/30)) 
             overflow_price = round(overflow_units*price)
+            lot_sizing = float(item['Lot Sizing'])
+            
             try:
                 next_buy = datetime.now() + timedelta(days=days_of_coverage - lead_time) if days_of_coverage != 0 \
                     else datetime.now()
@@ -237,6 +254,8 @@ class StockDataView(APIView):
                 characterization = "Sin stock"
 
             next_buy = next_buy.strftime('%Y-%m-%d') if isinstance(next_buy, datetime) else next_buy
+            how_much_vs_lot_sizing = round_up(how_much / int(lot_sizing), 0) if int(lot_sizing) != 0 else how_much
+            final_how_much = max(how_much_vs_lot_sizing, optimal_batch)
 
             stock = {
                 'Familia': item['Family'],
@@ -247,23 +266,23 @@ class StockDataView(APIView):
                 'Región': item['Region'],
                 'SKU': str(item['SKU']),
                 'Descripción': str(item['Description']),
-                'Stock': str(available_stock),
-                'Venta diaria histórico': str(avg_sales_historical),
-                'Venta diaria predecido': str(avg_sales_forecast),
+                'Stock': str(int(round(available_stock))),
+                'Venta diaria histórico': str(int(round(avg_sales_historical))),
+                'Venta diaria predecido': str(int(round(avg_sales_forecast))),
                 'Cobertura (días)': str(days_of_coverage),
                 'Stock seguridad en dias': str(safety_stock),
                 'Punto de reorden': str(reorder_point),
                 '¿Compro?': str(buy),
-                '¿Cuanto?': str(round(how_much)),
+                '¿Cuanto?': str(round(final_how_much)),
                 'Estado': str(stock_status),
-                'Valorizado': f'${str(round(price*available_stock, 2))}',
+                'Valorizado': round(price*available_stock),
                 'Demora en dias': str(lead_time),
                 'Fecha próx. compra':  str(next_buy) if days_of_coverage != 9999 else "---",
                 'Caracterización': characterization,
-                'Sobrante (unidades)': str(overflow_units),
+                'Sobrante (unidades)': overflow_units,
                 'Cobertura prox. compra (días)': str( days_of_coverage- next_buy_days ),
-                'Sobrante valorizado': f'${str(overflow_price)}',
-                'ABC': abc_dict.get(item['SKU'], ''),
+                'Sobrante valorizado': overflow_price,
+                'ABC': abc_class,
                 'XYZ': item['XYZ']
             }
 
@@ -348,24 +367,25 @@ class StockDataView(APIView):
     @permission_classes([IsAuthenticated])
     def post(self, request):
         project_pk = request.data.get('project_id')
-        # filters = request.data.get('filters')
-        # order = request.data.get('order')
         type_of_stock = request.data.get('type')
         params = request.data.get('params')
         historical_periods = int(params["historical_periods"])
         is_forecast = True if params["forecast_or_historical"] == "forecast" else False
         forecast_periods = int(params["forecast_periods"])
         scenario = int(params["scenario_id"]) if params["scenario_id"] is not False or params["scenario_id"] else False
+        only_traffic_light = request.GET.get('only_traffic_light', None)
+        filter_name = request.GET.get('filter_name', None)
+        filter_value = request.GET.get('filter_value', None)
 
         try:
-
-            safety_stock_is_zero = False
             traffic_light = ""
-            tables, max_historical_date = self.get_data(project_pk=project_pk, scenario=scenario)
+            safety_stock_is_zero = False
 
-            # if filters == '':
-            # else:
-            # hsd_table, stock_table = self.get_filtered_data(project_pk=project_pk, filters=filters, is_forecast=is_forecast, scenario=scenario)
+            if only_traffic_light == "true":
+                tables, max_historical_date = self.get_data(project_pk=project_pk, scenario=scenario, only_traffic_light=True, filter_name=filter_name, filter_value=filter_value)
+            
+            else:
+                tables, max_historical_date = self.get_data(project_pk=project_pk, scenario=scenario, only_traffic_light=False)
 
             if len(tables["historical"]) != len(tables["stock"]):
                 return Response(data={'error': 'stock_hsd_dif_len'}, status=status.HTTP_400_BAD_REQUEST)
@@ -381,17 +401,14 @@ class StockDataView(APIView):
             if type_of_stock == 'safety stock':
                 final_data = self.calculate_safety_stock(data=data)
 
-            # if order != "":
-                # key = list(order.keys())[0]
-                # order_type = order[key]
-
-                # if order_type == 'asc':
-                    # final_data = sorted(final_data, key=lambda items: items[key], reverse=False)
-                # else:
-                    # final_data = sorted(final_data, key=lambda items: items[key], reverse=True) 
-
-            return Response(data={"data": final_data, "is_zero": safety_stock_is_zero, "traffic_light": traffic_light},
-            status=status.HTTP_200_OK)
+            if only_traffic_light == "true":
+                print(traffic_light)
+                return Response(data={"traffic_light": traffic_light},
+                status=status.HTTP_200_OK)
+            
+            else:
+                return Response(data={"data": final_data, "is_zero": safety_stock_is_zero, "traffic_light": traffic_light},
+                status=status.HTTP_200_OK)
 
         except ValueError as err:
             if str(err) == 'Historical_not_found':

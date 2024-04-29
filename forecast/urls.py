@@ -46,6 +46,6 @@ urlpatterns = [
     path('exog-graph', exog_graph, name='exog_graph'),
     path('get-vars-names', get_vars_names, name='get_vars_names'),
     path('get-outliers', outliers, name='outliers'),
-    path('stock-data', stock_data, name='stock-data'),
+    path('stock-data/', stock_data, name='stock-data'),
     path('stock-product/', stock_by_product, name='stock_by_product')
 ]
