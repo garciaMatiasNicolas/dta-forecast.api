@@ -273,7 +273,7 @@ class StockDataView(APIView):
                 'Stock seguridad en dias': str(safety_stock),
                 'Punto de reorden': str(reorder_point),
                 '¿Compro?': str(buy),
-                '¿Cuanto?': str(round(final_how_much)),
+                '¿Cuanto?': str(round(final_how_much)) if buy == 'Si' else 0 ,
                 'Estado': str(stock_status),
                 'Valorizado': round(price*available_stock),
                 'Demora en dias': str(lead_time),
