@@ -4,11 +4,11 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 BASE_URL = os.getenv('BASE_URL', 'http://localhost:8000')
 
-SECRET_KEY = 'django-insecure-#(jseq=+!xdmpzdbusw_3vbu_v8#*u3c4@(+ywc(bbx0drle$c'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
-DEBUG = True
+DEBUG = os.environ.get('DEBUG')
 
-ALLOWED_HOSTS = ['dtaforecast.vercel.app', 'apifio.dtalogistica.com', '*']
+ALLOWED_HOSTS = ['dtaforecast.vercel.app', 'apifio.dtalogistica.com']
 
 BASE_APPS = [
     'django.contrib.admin',
@@ -93,10 +93,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'matiasngarcia2002@gmail.com'
-EMAIL_HOST_PASSWORD = 'bcpn dezp ycqw ubsg'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOWED_ORIGINS = [
     "https://dtaforecast.vercel.app",
