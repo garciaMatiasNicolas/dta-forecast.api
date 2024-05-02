@@ -27,7 +27,7 @@ class ExportExcelAPIView(APIView):
         directory = os.path.join(settings.MEDIA_ROOT, 'excel_files/exported_files/')
         if not os.path.exists(directory):
             os.makedirs(directory)
-        return directory
+
 
     @authentication_classes([TokenAuthentication])
     @permission_classes([IsAuthenticated])
@@ -45,16 +45,16 @@ class ExportExcelAPIView(APIView):
                     return Response({'error': 'error_creating_dataframe', 'logs': str(ve)},
                                     status=status.HTTP_400_BAD_REQUEST)
 
-                export_directory = self.create_export_directory()
+                self.create_export_directory()
                 file_name = serializer.validated_data['file_name']
-                file_path = os.path.join(export_directory, f'{file_name}_project_{project.project_name}.xlsx')
+                file_path = os.path.join('media', 'excel_files', 'exported_files', f'{file_name}_project_{project.project_name}.xlsx')
 
                 try:
-                    dataframe.to_excel(file_path, index=False)
+                    with pd.ExcelWriter(file_path, engine='xlsxwriter') as excel_writer:
+                        dataframe.to_excel(excel_writer, sheet_name='Result', index=True, merge_cells=False)
 
-                    file_url = os.path.join(settings.MEDIA_URL, 'excel_files/exported_files/',
-                                            f'{file_name}_project_{project.project_name}.xlsx')
-                    return Response({'file_url': file_url}, status=status.HTTP_200_OK)
+                    
+                    return Response({'file_url': file_path}, status=status.HTTP_200_OK)
 
                 except Exception as e:
                     print(f"ERROR {str(e)}")
