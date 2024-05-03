@@ -279,6 +279,7 @@ class StockDataView(APIView):
                 'Stock': locale.format_string("%d", int(round(available_stock)), grouping=True),
                 'Ordenes de venta pendientes': sales_order,
                 'Ordenes de compra': purchase_order,
+                'Lote de compra': lot_sizing,
                 'Venta diaria histórico': locale.format_string("%d", int(round(avg_sales_historical)), grouping=True),
                 'Venta diaria predecido': locale.format_string("%d", int(round(avg_sales_forecast)), grouping=True),
                 'Cobertura (días)': str(days_of_coverage),
