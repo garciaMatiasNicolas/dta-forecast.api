@@ -265,7 +265,8 @@ class StockDataView(APIView):
             how_much_vs_lot_sizing = round_up(how_much / int(lot_sizing), 0) if int(lot_sizing) != 0 else how_much
             how_much_vs_lot_sizing = max(how_much_vs_lot_sizing, optimal_batch)
             final_how_much = available_stock - sales_order + purchase_order if make_to_order == 'MTO' else round(how_much_vs_lot_sizing*purchase_unit) if buy == 'Si' else 0
-
+            final_buy = ('Si' if available_stock - sales_order + purchase_order < 0 else 'No') if make_to_order == 'MTO' else buy
+            
             stock = {
                 'Familia': item['Family'],
                 'Categoria': item['Category'],
@@ -283,7 +284,7 @@ class StockDataView(APIView):
                 'Cobertura (días)': str(days_of_coverage),
                 'Stock seguridad en dias': str(safety_stock),
                 'Punto de reorden': str(reorder_point),
-                '¿Compro?': str(buy) if is_obs != 'OB' else 'No',
+                '¿Compro?': str(final_buy) if is_obs != 'OB' else 'No',
                 '¿Cuanto?': locale.format_string("%d", round(final_how_much * purchase_unit), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
                 'Estado': str(stock_status),
                 'Valorizado': locale.format_string("%d", round(price * available_stock), grouping=True),
