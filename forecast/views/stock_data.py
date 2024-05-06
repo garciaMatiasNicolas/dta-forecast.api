@@ -222,10 +222,10 @@ class StockDataView(APIView):
             overflow_units = available_stock if avg_sales == 0 else (0 if days_of_coverage - reorder_point < 0 else round((days_of_coverage - reorder_point)*avg_sales/30)) 
             overflow_price = round(overflow_units*price)
             lot_sizing = float(item['Lot Sizing'])
-            purchase_order = int(item['Purchase Order'])
-            sales_order = int(item['Sales Order Pending Deliverys'])
+            purchase_order = float(item['Purchase Order'])
+            sales_order = float(item['Sales Order Pending Deliverys'])
             is_obs = str(item['Slow moving'])
-            purchase_unit = int(item['Purchase unit'])
+            purchase_unit = float(item['Purchase unit'])
             make_to_order = str(item['Make to order'])
             
             try:
@@ -286,7 +286,8 @@ class StockDataView(APIView):
                 'Stock seguridad en dias': str(safety_stock),
                 'Punto de reorden': str(reorder_point),
                 '¿Compro?': str(final_buy) if is_obs != 'OB' else 'No',
-                '¿Cuanto?': locale.format_string("%d", round(final_how_much * purchase_unit), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
+                '¿Cuanto?': locale.format_string("%d", round(final_how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
+                '¿Cuanto? (Purchase Unit)': locale.format_string("%d", round(final_how_much * purchase_unit), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
                 'Estado': str(stock_status),
                 'Valorizado': locale.format_string("%d", round(price * available_stock), grouping=True),
                 'Demora en dias': str(lead_time),
