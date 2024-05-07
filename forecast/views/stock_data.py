@@ -263,7 +263,7 @@ class StockDataView(APIView):
                 characterization = "Sin stock"
    
             next_buy = next_buy.strftime('%Y-%m-%d') if isinstance(next_buy, datetime) else next_buy
-            how_much_vs_lot_sizing = round_up(how_much / int(lot_sizing)) if int(lot_sizing) != 0.0 else how_much
+            how_much_vs_lot_sizing = round_up(how_much, int(lot_sizing)) if int(lot_sizing) != 0.0 else how_much
             how_much_vs_lot_sizing = max(how_much_vs_lot_sizing, optimal_batch)
             final_how_much = available_stock - sales_order + purchase_order if make_to_order == 'MTO' else round(how_much_vs_lot_sizing) if buy == 'Si' else 0
             final_buy = ('Si' if available_stock - sales_order + purchase_order < 0 else 'No') if make_to_order == 'MTO' else buy
