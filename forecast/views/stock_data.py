@@ -195,8 +195,9 @@ class StockDataView(APIView):
             return True
         
         def round_up(n, dec):
-            factor = 10 ** dec
-            return math.ceil(n * factor) / factor
+            factor = n / dec
+            factor = round(factor)
+            return factor * dec
 
         safety_stock_is_zero = verify_safety_stock_zero(data)
 
@@ -262,7 +263,7 @@ class StockDataView(APIView):
                 characterization = "Sin stock"
    
             next_buy = next_buy.strftime('%Y-%m-%d') if isinstance(next_buy, datetime) else next_buy
-            how_much_vs_lot_sizing = round_up(how_much / int(lot_sizing), 0) if int(lot_sizing) != 0.0 else how_much
+            how_much_vs_lot_sizing = round_up(how_much / int(lot_sizing)) if int(lot_sizing) != 0.0 else how_much
             how_much_vs_lot_sizing = max(how_much_vs_lot_sizing, optimal_batch)
             final_how_much = available_stock - sales_order + purchase_order if make_to_order == 'MTO' else round(how_much_vs_lot_sizing) if buy == 'Si' else 0
             final_buy = ('Si' if available_stock - sales_order + purchase_order < 0 else 'No') if make_to_order == 'MTO' else buy
@@ -279,14 +280,13 @@ class StockDataView(APIView):
                 'Stock': locale.format_string("%d", int(round(available_stock)), grouping=True),
                 'Ordenes de venta pendientes': sales_order,
                 'Ordenes de compra': purchase_order,
-                'Lote de compra': lot_sizing,
                 'Venta diaria histórico': locale.format_string("%d", int(round(avg_sales_historical)), grouping=True),
                 'Venta diaria predecido': locale.format_string("%d", int(round(avg_sales_forecast)), grouping=True),
                 'Cobertura (días)': str(days_of_coverage),
-                'Stock seguridad en dias': str(safety_stock),
                 'Punto de reorden': str(reorder_point),
                 '¿Compro?': str(final_buy) if is_obs != 'OB' else 'No',
-                '¿Cuanto?': locale.format_string("%d", round(final_how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
+                '¿Cuanto?': locale.format_string("%d", round(how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0" ,
+                '¿Cuanto? (Lot Sizing)': locale.format_string("%d", round(final_how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
                 '¿Cuanto? (Purchase Unit)': locale.format_string("%d", round(final_how_much * purchase_unit), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
                 'Estado': str(stock_status),
                 'Valorizado': locale.format_string("%d", round(price * available_stock), grouping=True),
@@ -295,7 +295,11 @@ class StockDataView(APIView):
                 'Caracterización': characterization,
                 'Sobrante (unidades)': locale.format_string("%d", overflow_units, grouping=True),
                 'Cobertura prox. compra (días)': str(days_of_coverage - next_buy_days),
-                'Sobrante valorizado': locale.format_string("%f", overflow_price, grouping=True),
+                'Sobrante valorizado': locale.format_string("%f", round(overflow_price), grouping=True),
+                'Lote optimo de compra': optimal_batch,
+                'Stock seguridad en dias': str(safety_stock),
+                'Unidad de compra': purchase_unit,
+                'Lote de compra': lot_sizing,
                 'MTO': make_to_order if make_to_order == 'MTO' else '',
                 'OB': is_obs if is_obs == 'OB' else '',
                 'ABC': abc_class,
