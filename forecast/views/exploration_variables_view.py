@@ -32,15 +32,6 @@ class FilterValuesView(APIView):
 
 class HistoricalDataView(APIView):
 
-    @staticmethod
-    def join_dates(list_dates: list, for_report: bool):
-        if for_report:
-            dates_joined = " + ".join([f"SUM(\"{date}\")" for date in list_dates])
-        else:
-            dates_joined = ",\n".join([f"SUM(\"{date}\") as \"{date.split('-')[0]}\"" for date in list_dates])
-
-        return dates_joined
-
     @authentication_classes([TokenAuthentication])
     @permission_classes([IsAuthenticated])
     def post(self, request):
@@ -61,7 +52,7 @@ class HistoricalDataView(APIView):
 
         else:
             with connection.cursor() as cursor:
-                cursor.execute(f'SELECT name FROM pragma_table_info("{hsd.file_name}")')
+                cursor.execute(f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dtafio' AND TABLE_NAME = '{hsd.file_name}';")
                 columns = cursor.fetchall()
                 columns_date = []
 
@@ -69,14 +60,7 @@ class HistoricalDataView(APIView):
                     if col[0] not in columns_to_delete_hsd:
                         columns_date.append(col[0])
 
-                sum_columns = ', '.join([f'SUM("{date}")' for date in columns_date])
-
-                """  
-                    SQL QUERY FOR MYSQL
-                    SELECT COLUMN_NAME
-                    FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = 'database_name' AND TABLE_NAME = 'table_name';
-                """
+                sum_columns = ', '.join([f'SUM(`{date}`)' for date in columns_date])
 
                 cursor.execute(f'SELECT {filter_name}, {sum_columns} FROM {hsd.file_name} GROUP BY {filter_name}')
                 data = cursor.fetchall()
@@ -90,6 +74,7 @@ class HistoricalDataView(APIView):
             category_name = item[0]
             sales_values = item[1:]
             data_dict['y'][category_name] = sales_values
+        
 
         return Response(data=data_dict, status=status.HTTP_200_OK)
 

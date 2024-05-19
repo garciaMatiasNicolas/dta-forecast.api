@@ -295,7 +295,7 @@ class StockDataView(APIView):
                 'Caracterización': characterization,
                 'Sobrante (unidades)': locale.format_string("%d", overflow_units, grouping=True),
                 'Cobertura prox. compra (días)': str(days_of_coverage - next_buy_days),
-                'Sobrante valorizado': locale.format_string("%f", round(overflow_price), grouping=True),
+                'Sobrante valorizado': locale.format_string("%d", round(overflow_price), grouping=True),
                 'Lote optimo de compra': optimal_batch,
                 'Stock seguridad en dias': str(safety_stock),
                 'Unidad de compra': purchase_unit,

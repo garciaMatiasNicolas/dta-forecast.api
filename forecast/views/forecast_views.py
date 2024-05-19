@@ -75,7 +75,7 @@ class RunModelsViews(APIView):
                 error_method = scenario.error_type
                 error_periods = scenario.error_p
                 scenario_name = scenario.scenario_name
-                table_name = f'Historical_Data_{project.project_name}_user{user}'
+                table_name = f'historical_data_{project.project_name}_user{user}'
                 query = f"SELECT * FROM {table_name}"
                 df = pd.read_sql_query(query, con=engine)
 
@@ -88,7 +88,7 @@ class RunModelsViews(APIView):
                 scenario.seasonal_periods = seasonal_periods
 
                 # Excel predictions path
-                path = f'media/excel_files/predictions/{table_name}_prediction_results_scenario_{scenario_name}.xlsx'
+                path = f'media/excel_files/predictions/{project.project_name}_scenario_{scenario_name}_u{user}.xlsx'
 
                 def run_models():
                     try:
@@ -125,7 +125,7 @@ class RunModelsViews(APIView):
                                 work_sheet.set_column(i, i, width_column)
 
                         file_path = os.path.join(settings.MEDIA_ROOT, 'excel_files/predictions',
-                                                 f'{table_name}_prediction_results_scenario_{scenario_name}.xlsx')
+                                                 f'{project.project_name}_scenario_{scenario_name}_u{user}.xlsx')
 
                         # Generate graphical predictions
                         graphic = Graphic(
@@ -140,7 +140,7 @@ class RunModelsViews(APIView):
                         # Save the predictions in the scenario
                         scenario.final_data_pred = final_data
                         scenario.data_year_pred = data_per_year
-                        scenario.predictions_table_name = f'{table_name}_prediction_results_scenario_{scenario_name}'
+                        scenario.predictions_table_name = f'{project.project_name}_scenario_{scenario_name}_u{user}'
                         scenario.error_last_twelve_periods = error
                         scenario.url_predictions = path
                         scenario.error_last_period = last_error
@@ -154,7 +154,7 @@ class RunModelsViews(APIView):
 
                         # Save the predicted data as a table
                         save_dataframe(route_file=path,
-                                       file_name=f'{table_name}_prediction_results_scenario_{scenario_name}',
+                                       file_name=f'{project.project_name}_scenario_{scenario_name}_u{user}',
                                        model_type="historical_data",
                                        wasSaved=True,
                                        project_pk=project)

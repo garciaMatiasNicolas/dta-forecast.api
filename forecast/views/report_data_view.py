@@ -23,11 +23,12 @@ class ReportDataViews(APIView):
     @staticmethod
     def join_dates(list_dates: list, for_report: bool):
         if for_report:
-            dates_joined = " + ".join([f"SUM(\"{date}\")" for date in list_dates])
+            dates_joined = " + ".join([f"SUM(`{date}`)" for date in list_dates])
         else:
-            dates_joined = ",\n".join([f"SUM(\"{date}\") as \"{date.split('-')[0]}\"" for date in list_dates])
+            dates_joined = ",\n".join([f"SUM(`{date}`) as `{date.split('-')[0]}`" for date in list_dates])
 
         return dates_joined
+
 
     @staticmethod
     def filter_dates_by_month(last_date, date_list, target_month):
@@ -53,130 +54,133 @@ class ReportDataViews(APIView):
         return filtered_dates, future_dates
 
     def handle_reports(self, filter_name, predictions_table_name, last_date_index, list_date_columns, product=None):
-        with (connection.cursor() as cursor):
-            last_year_since_last_date = list_date_columns[last_date_index - 12:last_date_index + 1][1:]
-            last_quarter_since_last_date = list_date_columns[last_date_index - 3:last_date_index + 1]
-            last_month = list_date_columns[last_date_index]
+        try:
+            with (connection.cursor() as cursor):
+                last_year_since_last_date = list_date_columns[last_date_index - 12:last_date_index + 1][1:]
+                last_quarter_since_last_date = list_date_columns[last_date_index - 3:last_date_index + 1]
+                last_month = list_date_columns[last_date_index]
 
-            next_year_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 13]
-            next_quarter_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 5]
-            next_month_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 2]
+                next_year_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 13]
+                next_quarter_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 5]
+                next_month_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 2]
 
-            dates_a = list_date_columns[last_date_index - 23:last_date_index - 11]
-            dates_b = dates_a[-4:]
-            dates_c = dates_a[-1]
+                dates_a = list_date_columns[last_date_index - 23:last_date_index - 11]
+                dates_b = dates_a[-4:]
+                dates_c = dates_a[-1]
 
-            dates_d = last_year_since_last_date[:4]
-            dates_e = dates_d[0]
+                dates_d = last_year_since_last_date[:4]
+                dates_e = dates_d[0]
 
-            reports_name = [
-                "last_year_since_last_date",
-                "last_quarter_since_last_date",
-                "last_month",
-                "next_year_since_last_date",
-                "next_quarter_since_last_date",
-                "next_month_since_last_date",
-                "dates_a",
-                "dates_b",
-                "dates_c",
-                "dates_d",
-                "dates_e"
-            ]
+                reports_name = [
+                    "last_year_since_last_date",
+                    "last_quarter_since_last_date",
+                    "last_month",
+                    "next_year_since_last_date",
+                    "next_quarter_since_last_date",
+                    "next_month_since_last_date",
+                    "dates_a",
+                    "dates_b",
+                    "dates_c",
+                    "dates_d",
+                    "dates_e"
+                ]
 
-            date_ranges = [
-                last_year_since_last_date,
-                last_quarter_since_last_date,
-                last_month,
-                next_year_since_last_date,
-                next_quarter_since_last_date,
-                next_month_since_last_date,
-                dates_a,
-                dates_b,
-                dates_c,
-                dates_d,
-                dates_e
-            ]
+                date_ranges = [
+                    last_year_since_last_date,
+                    last_quarter_since_last_date,
+                    last_month,
+                    next_year_since_last_date,
+                    next_quarter_since_last_date,
+                    next_month_since_last_date,
+                    dates_a,
+                    dates_b,
+                    dates_c,
+                    dates_d,
+                    dates_e
+                ]
 
-            reports_data = {}
+                reports_data = {}
 
-            for date_range, date_name in zip(date_ranges, reports_name):
-                dates_report = self.join_dates(list_dates=date_range, for_report=True)
-                reports_data[date_name] = dates_report
+                for date_range, date_name in zip(date_ranges, reports_name):
+                    dates_report = self.join_dates(list_dates=date_range, for_report=True)
+                    reports_data[date_name] = dates_report
 
-            actual_dates = f'''
-                SELECT
-                    {'SKU || " " ||DESCRIPTION' if filter_name == "SKU" else filter_name},
-                    ROUND({reports_data["last_year_since_last_date"]}),
-                    ROUND({reports_data["last_quarter_since_last_date"]}),
-                    ROUND(SUM("{last_month}")),
-                    ROUND({reports_data["dates_a"]}),
-                    ROUND({reports_data["dates_b"]}),
-                    ROUND(SUM("{dates_c}")),
-                    ROUND({reports_data["dates_d"]}),
-                    ROUND(SUM("{dates_e}"))
-                FROM {predictions_table_name}
-                WHERE model = 'actual'
-                GROUP BY {filter_name} UNION 
-                SELECT 'TOTAL',
-                    ROUND({reports_data["last_year_since_last_date"]}),
-                    ROUND({reports_data["last_quarter_since_last_date"]}),
-                    ROUND(SUM("{last_month}")),
-                    ROUND({reports_data["dates_a"]}),
-                    ROUND({reports_data["dates_b"]}),
-                    ROUND(SUM("{dates_c}")),
-                    ROUND({reports_data["dates_d"]}),
-                    ROUND(SUM("{dates_e}"))
-                FROM {predictions_table_name}
-                WHERE model = 'actual'
-                ;
-            '''
+                actual_dates = f'''
+                    SELECT
+                        {'SKU || " " || DESCRIPTION' if filter_name == "SKU" else filter_name},
+                        ROUND({reports_data["last_year_since_last_date"]}),
+                        ROUND({reports_data["last_quarter_since_last_date"]}),
+                        ROUND(SUM(`{last_month}`)),
+                        ROUND({reports_data["dates_a"]}),
+                        ROUND({reports_data["dates_b"]}),
+                        ROUND(SUM(`{dates_c}`)),
+                        ROUND({reports_data["dates_d"]}),
+                        ROUND(SUM(`{dates_e}`))
+                    FROM {predictions_table_name}
+                    WHERE model = 'actual'
+                    GROUP BY {filter_name} WITH ROLLUP;
 
-            predicted_dates = f'''
-                SELECT
-                    {'SKU || " " ||DESCRIPTION' if filter_name == "SKU" else filter_name},
-                    ROUND({reports_data["next_year_since_last_date"]}),
-                    ROUND({reports_data["next_quarter_since_last_date"]}),
-                    ROUND({reports_data["next_month_since_last_date"]})
-                FROM {predictions_table_name}
-                WHERE model != 'actual'
-                GROUP BY {filter_name} UNION
-                SELECT  'TOTAL',
+                    SELECT 'TOTAL',
+                        ROUND({reports_data["last_year_since_last_date"]}),
+                        ROUND({reports_data["last_quarter_since_last_date"]}),
+                        ROUND(SUM(`{last_month}`)),
+                        ROUND({reports_data["dates_a"]}),
+                        ROUND({reports_data["dates_b"]}),
+                        ROUND(SUM(`{dates_c}`)),
+                        ROUND({reports_data["dates_d"]}),
+                        ROUND(SUM(`{dates_e}`))
+                    FROM {predictions_table_name}
+                    WHERE model = 'actual'
+                    ;
+
+                '''
+
+                predicted_dates = f'''
+                    SELECT
+                        {'SKU || " " || DESCRIPTION' if filter_name == "SKU" else filter_name},
                         ROUND({reports_data["next_year_since_last_date"]}),
                         ROUND({reports_data["next_quarter_since_last_date"]}),
                         ROUND({reports_data["next_month_since_last_date"]})
-                FROM {predictions_table_name}
-                WHERE model != 'actual';
-            '''
+                    FROM {predictions_table_name}
+                    WHERE model != 'actual'
+                    GROUP BY {filter_name} WITH ROLLUP;
 
-            '''
-                MYSQL = WITH ROLLUP
-            '''
+                    SELECT 'TOTAL',
+                        ROUND({reports_data["next_year_since_last_date"]}),
+                        ROUND({reports_data["next_quarter_since_last_date"]}),
+                        ROUND({reports_data["next_month_since_last_date"]})
+                    FROM {predictions_table_name}
+                    WHERE model != 'actual';
+                '''
 
-            cursor.execute(sql=actual_dates)
-            actual_dates = cursor.fetchall()
 
-            cursor.execute(sql=predicted_dates)
-            predicted_dates = cursor.fetchall()
+                cursor.execute(sql=actual_dates)
+                actual_dates = cursor.fetchall()
 
-            for i in range(len(actual_dates)):
-                category, *actual_values = actual_dates[i]
-                for pred_category, *predicted_values in predicted_dates:
-                    if category == pred_category:
-                        actual_dates[i] = (category, *actual_values, *predicted_values)
+                cursor.execute(sql=predicted_dates)
+                predicted_dates = cursor.fetchall()
+            
+                final_data = []
 
-            final_data = []
+                for predicted, actual in zip(predicted_dates, actual_dates):
+                    # Verificar si las categorías coinciden
+                    if predicted[0] == actual[0]:
+                        # Calcular los porcentajes
+                        ytd = self.calc_perc(n1=actual[1], n2=actual[4])
+                        qtd = self.calc_perc(n1=actual[2], n2=actual[5])
+                        mtd = self.calc_perc(n1=actual[3], n2=actual[6])
+                        ytg = self.calc_perc(n1=predicted[1], n2=actual[1])
+                        qtg = self.calc_perc(n1=predicted[2], n2=actual[7])
+                        mtg = self.calc_perc(n1=predicted[3], n2=actual[8])
+                        
+                        # Agregar los resultados a la lista final
+                        final_data.append([predicted[0], ytd, qtd, mtd, ytg, qtg, mtg])
 
-            for item in actual_dates:
-                ytd = self.calc_perc(n1=item[1], n2=item[4])
-                qtd = self.calc_perc(n1=item[2], n2=item[5])
-                mtd = self.calc_perc(n1=item[3], n2=item[6])
-                ytg = self.calc_perc(n1=item[9], n2=item[1])
-                qtg = self.calc_perc(n1=item[10], n2=item[7])
-                mtg = self.calc_perc(n1=item[11], n2=item[8])
-
-                final_data.append([item[0], ytd, qtd, mtd, ytg, qtg, mtg])
-
-            return final_data
+                # Retornar los datos finales
+                return final_data
+            
+        except Exception as err:
+            print(err)
 
     @authentication_classes([TokenAuthentication])
     @permission_classes([IsAuthenticated])
@@ -194,17 +198,13 @@ class ReportDataViews(APIView):
             with connection.cursor() as cursor:
                 last_date = scenario.max_historical_date
 
-                cursor.execute(sql=f'''SELECT name FROM pragma_table_info("{predictions_table_name}") 
-                                WHERE name LIKE "%-%";''')
+                cursor.execute(sql=f'''
+                    SELECT COLUMN_NAME 
+                    FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = 'dtafio' AND TABLE_NAME = '{predictions_table_name}' AND COLUMN_NAME LIKE '%-%';
+                 ;
+                ''')
                 date_columns = cursor.fetchall()
-
-                """
-                SQL QUERY FOR MYSQL
-                SELECT COLUMN_NAME
-                FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_NAME = NOMBRE_TABLA
-                    AND COLUMN_NAME LIKE '%-%';
-                """
 
                 # Get the years distinct and get a transform into a list the sqlquery tuple list
                 years_set = set()

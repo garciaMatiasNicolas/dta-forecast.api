@@ -101,10 +101,19 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
 
         else:
             if model_type == "historical_exogenous_variables" or model_type == "projected_exogenous_variables":
-                dataframe.to_sql(table_name, con=engine, if_exists='append', index=False)
+                try:
+                    dataframe.to_sql(table_name, con=engine, if_exists='append', index=False)
+                    print("TABLA GUARDADA")
+                except Exception as Err:
+                    print(Err)
+                
 
             else:
-                dataframe.to_sql(table_name, con=engine, if_exists='replace', index=False)
+                try:
+                    dataframe.to_sql(table_name, con=engine, if_exists='replace', index=False)
+                    print("TABLA GUARDADA")
+                except Exception as Err:
+                    print(Err)
 
             return "succeed"
 
