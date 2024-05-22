@@ -159,12 +159,23 @@ class StockDataView(APIView):
                 results.append(row_with_stats)
 
         stats_df = pd.DataFrame(results)
+        
+        try:
+            result_df = pd.concat(objs=[historical[['SKU', 'Description', 'Family', 'Region', 'Client', 'Salesman', 'Category', 'Subcategory']], stats_df], axis=1)
+            merged_df = pd.merge(result_df, stock, on=['SKU', 'Description', 'Family', 'Region', 'Client', 'Salesman', 'Category', 'Subcategory'], how='outer', indicator=True)
 
-        result_df = pd.concat(objs=[historical[['SKU', 'Description', 'Family', 'Region', 'Client', 'Salesman', 'Category', 'Subcategory']], stats_df], axis=1)
-        result_df = pd.merge(result_df, stock, on=['SKU', 'Description', 'Family', 'Region', 'Client', 'Salesman', 'Category', 'Subcategory'], how='inner')
-        result_list = result_df.to_dict(orient='records')
+            # Convertir la columna '_merge' a categórica
+            merged_df['_merge'] = merged_df['_merge'].astype('str')
 
-        return result_list
+            # Rellenar los valores 'NaN' con 0 después de convertir la columna '_merge' a categórica
+            merged_df.fillna(0, inplace=True)
+            result_list = merged_df.to_dict(orient='records')
+
+            return result_list
+
+        except Exception as err:
+            print(err)
+
 
     @staticmethod
     def calculate_abc(products, is_forecast):
@@ -186,202 +197,237 @@ class StockDataView(APIView):
 
     def calculate_stock(self, data: List[Dict[str, Any]], next_buy_days: int, is_forecast: bool) -> (
             tuple)[list[dict[str | Any, int | str | datetime | Any]], bool]:
+        try:
+            def verify_safety_stock_zero(array: List[Dict[str, Any]]):
+                for product in array:
+                    if product.get("Safety Stock", 0) != 0:
+                        return False
 
-        def verify_safety_stock_zero(array: List[Dict[str, Any]]):
-            for product in array:
-                if product.get("Safety Stock", 0) != 0:
-                    return False
-
-            return True
-        
-        def round_up(n, dec):
-            factor = n / dec
-            factor = round(factor)
-            return factor * dec
-
-        safety_stock_is_zero = verify_safety_stock_zero(data)
-
-        results = []
-
-        abc = self.calculate_abc(products=data, is_forecast=is_forecast)
-        abc_dict = {product['SKU']: product['ABC'] for product in abc}
-
-        for item in data:
-            abc_class = abc_dict.get(str(item['SKU']), 'N/A')
-            avg_sales_historical = float(item["avg_sales_per_day_historical"])
-            price = float(item['Price'])
-            avg_sales_forecast = float(item["avg_sales_per_day_forecast"]) 
-            avg_sales = float(item[f'avg_sales_per_day_{"forecast" if is_forecast else "historical"}'])
-            available_stock = float(item['Stock']) - float(item['Sales Order Pending Deliverys'])# float(item["Available Stock"]) 
-            lead_time = int(item['Lead Time'])
-            safety_stock = int(item['Safety stock (days)'])
-            reorder_point = next_buy_days + lead_time + safety_stock
-            days_of_coverage = round(available_stock / avg_sales) if avg_sales != 0 else 9999
-            buy = 'Si' if (days_of_coverage - reorder_point) < 1 else 'No'
-            optimal_batch = float(item["EOQ (Economical order quantity)"])
-            how_much = max(optimal_batch, (next_buy_days + lead_time + safety_stock - days_of_coverage) * avg_sales ) if buy == 'Si' else 0
-            overflow_units = available_stock if avg_sales == 0 else (0 if days_of_coverage - reorder_point < 0 else round((days_of_coverage - reorder_point)*avg_sales/30)) 
-            overflow_price = round(overflow_units*price)
-            lot_sizing = float(item['Lot Sizing'])
-            purchase_order = float(item['Purchase Order'])
-            sales_order = float(item['Sales Order Pending Deliverys'])
-            is_obs = str(item['Slow moving'])
-            purchase_unit = float(item['Purchase unit'])
-            make_to_order = str(item['Make to order'])
+                return True
             
-            try:
-                next_buy = datetime.now() + timedelta(days=days_of_coverage - lead_time) if days_of_coverage != 0 \
-                    else datetime.now()
+            def round_up(n, dec):
+                factor = n / dec
+                factor = round(factor)
+                return factor * dec
 
-            except OverflowError:
-                next_buy = ""
+            safety_stock_is_zero = verify_safety_stock_zero(data)
 
-            if days_of_coverage == 9999:
-                stock_status = "Obsoleto"
-                if available_stock != 0:
-                    characterization = "0-Con stock sin ventas"
-            elif days_of_coverage > 360:
-                stock_status = 'Alto sobrestock'
-                characterization = "1-Más de 360 días"
-            elif days_of_coverage > 180:
-                stock_status = 'Sobrestock'
-                characterization = "2-Entre 180 y 360"
-            elif days_of_coverage > 30:
-                stock_status = 'Normal'
-                if days_of_coverage > 90:
-                    characterization = "3-Entre 90 y 180"
+            results = []
+
+            abc = self.calculate_abc(products=data, is_forecast=is_forecast)
+            abc_dict = {product['SKU']: product['ABC'] for product in abc}
+
+            for item in data:
+                abc_class = abc_dict.get(str(item['SKU']), 'N/A')
+                avg_sales_historical = float(item["avg_sales_per_day_historical"])
+                price = float(item['Price'])
+                avg_sales_forecast = float(item["avg_sales_per_day_forecast"]) 
+                avg_sales = float(item[f'avg_sales_per_day_{"forecast" if is_forecast else "historical"}'])
+                available_stock = float(item['Stock']) - float(item['Sales Order Pending Deliverys'])# float(item["Available Stock"]) 
+                lead_time = int(item['Lead Time'])
+                safety_stock = int(item['Safety stock (days)'])
+                reorder_point = next_buy_days + lead_time + safety_stock
+                days_of_coverage = round(available_stock / avg_sales) if avg_sales != 0 else 9999
+                buy = 'Si' if (days_of_coverage - reorder_point) < 1 else 'No'
+                optimal_batch = float(item["EOQ (Economical order quantity)"])
+                how_much = max(optimal_batch, (next_buy_days + lead_time + safety_stock - days_of_coverage) * avg_sales ) if buy == 'Si' else 0
+                overflow_units = available_stock if avg_sales == 0 else (0 if days_of_coverage - reorder_point < 0 else round((days_of_coverage - reorder_point)*avg_sales/30)) 
+                overflow_price = round(overflow_units*price)
+                lot_sizing = float(item['Lot Sizing'])
+                purchase_order = float(item['Purchase Order'])
+                sales_order = float(item['Sales Order Pending Deliverys'])
+                is_obs = str(item['Slow moving'])
+                purchase_unit = float(item['Purchase unit'])
+                make_to_order = str(item['Make to order'])
+                merge = str(item['_merge'])
+                
+                try:
+                    next_buy = datetime.now() + timedelta(days=days_of_coverage - lead_time) if days_of_coverage != 0 \
+                        else datetime.now()
+
+                except OverflowError:
+                    next_buy = ""
+
+                if days_of_coverage == 9999:
+                    stock_status = "Obsoleto"
+                    if available_stock != 0:
+                        characterization = "0-Con stock sin ventas"
+                elif days_of_coverage > 360:
+                    stock_status = 'Alto sobrestock'
+                    characterization = "1-Más de 360 días"
+                elif days_of_coverage > 180:
+                    stock_status = 'Sobrestock'
+                    characterization = "2-Entre 180 y 360"
+                elif days_of_coverage > 30:
+                    stock_status = 'Normal'
+                    if days_of_coverage > 90:
+                        characterization = "3-Entre 90 y 180"
+                    else:
+                        characterization = "4-Entre 30 y 90"
+                elif days_of_coverage > 15:
+                    stock_status = 'Riesgo quiebre'
+                    characterization = "5-Entre 15 y 30"
+                elif days_of_coverage >= 0:
+                    stock_status = "Quiebre"
+                    characterization = "6-Menos de 15"
                 else:
-                    characterization = "4-Entre 30 y 90"
-            elif days_of_coverage > 15:
-                stock_status = 'Riesgo quiebre'
-                characterization = "5-Entre 15 y 30"
-            elif days_of_coverage >= 0:
-                stock_status = "Quiebre"
-                characterization = "6-Menos de 15"
-            else:
-                stock_status = 'Stock negativo'
-                characterization = "Sin stock"
-   
-            next_buy = next_buy.strftime('%Y-%m-%d') if isinstance(next_buy, datetime) else next_buy
-            how_much_vs_lot_sizing = round_up(how_much, int(lot_sizing)) if int(lot_sizing) != 0.0 else how_much
-            how_much_vs_lot_sizing = max(how_much_vs_lot_sizing, optimal_batch)
-            final_how_much = available_stock - sales_order + purchase_order if make_to_order == 'MTO' else round(how_much_vs_lot_sizing) if buy == 'Si' else 0
-            final_buy = ('Si' if available_stock - sales_order + purchase_order < 0 else 'No') if make_to_order == 'MTO' else buy
-            
-            stock = {
-                'Familia': item['Family'],
-                'Categoria': item['Category'],
-                'Vendedor': item['Salesman'],
-                'Subcategoria': item['Subcategory'],
-                'Cliente': item['Client'],
-                'Región': item['Region'],
-                'SKU': str(item['SKU']),
-                'Descripción': str(item['Description']),
-                'Stock': locale.format_string("%d", int(round(available_stock)), grouping=True),
-                'Ordenes de venta pendientes': sales_order,
-                'Ordenes de compra': purchase_order,
-                'Venta diaria histórico': locale.format_string("%d", int(round(avg_sales_historical)), grouping=True),
-                'Venta diaria predecido': locale.format_string("%d", int(round(avg_sales_forecast)), grouping=True),
-                'Cobertura (días)': str(days_of_coverage),
-                'Punto de reorden': str(reorder_point),
-                '¿Compro?': str(final_buy) if is_obs != 'OB' else 'No',
-                '¿Cuanto?': locale.format_string("%d", round(how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0" ,
-                '¿Cuanto? (Lot Sizing)': locale.format_string("%d", round(final_how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
-                '¿Cuanto? (Purchase Unit)': locale.format_string("%d", round(final_how_much * purchase_unit), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
-                'Estado': str(stock_status),
-                'Valorizado': locale.format_string("%d", round(price * available_stock), grouping=True),
-                'Demora en dias': str(lead_time),
-                'Fecha próx. compra': str(next_buy) if days_of_coverage != 9999 else "---",
-                'Caracterización': characterization,
-                'Sobrante (unidades)': locale.format_string("%d", overflow_units, grouping=True),
-                'Cobertura prox. compra (días)': str(days_of_coverage - next_buy_days),
-                'Sobrante valorizado': locale.format_string("%d", round(overflow_price), grouping=True),
-                'Lote optimo de compra': optimal_batch,
-                'Stock seguridad en dias': str(safety_stock),
-                'Unidad de compra': purchase_unit,
-                'Lote de compra': lot_sizing,
-                'MTO': make_to_order if make_to_order == 'MTO' else '',
-                'OB': is_obs if is_obs == 'OB' else '',
-                'ABC': abc_class,
-                'XYZ': item['XYZ']
-            }
+                    stock_status = 'Stock negativo'
+                    characterization = "Sin stock"
+    
+                next_buy = next_buy.strftime('%Y-%m-%d') if isinstance(next_buy, datetime) else next_buy
+                how_much_vs_lot_sizing = round_up(how_much, int(lot_sizing)) if int(lot_sizing) != 0.0 else how_much
+                how_much_vs_lot_sizing = max(how_much_vs_lot_sizing, optimal_batch)
+                final_how_much = available_stock - sales_order + purchase_order if make_to_order == 'MTO' else round(how_much_vs_lot_sizing) if buy == 'Si' else 0
+                final_buy = ('Si' if available_stock - sales_order + purchase_order < 0 else 'No') if make_to_order == 'MTO' else buy
+                
+                stock = {
+                    'Familia': item['Family'],
+                    'Categoria': item['Category'],
+                    'Vendedor': item['Salesman'],
+                    'Subcategoria': item['Subcategory'],
+                    'Cliente': item['Client'],
+                    'Región': item['Region'],
+                    'SKU': str(item['SKU']),
+                    'Descripción': str(item['Description']),
+                    'Stock': locale.format_string("%d", int(round(available_stock)), grouping=True),
+                    'Ordenes de venta pendientes': sales_order,
+                    'Ordenes de compra': purchase_order,
+                    'Venta diaria histórico': locale.format_string("%d", int(round(avg_sales_historical)), grouping=True),
+                    'Venta diaria predecido': locale.format_string("%d", int(round(avg_sales_forecast)), grouping=True),
+                    'Cobertura (días)': str(days_of_coverage),
+                    'Punto de reorden': str(reorder_point),
+                    '¿Compro?': str(final_buy) if is_obs != 'OB' else 'No',
+                    '¿Cuanto?': locale.format_string("%d", round(how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0" ,
+                    '¿Cuanto? (Lot Sizing)': locale.format_string("%d", round(final_how_much), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
+                    '¿Cuanto? (Purchase Unit)': locale.format_string("%d", round(final_how_much * purchase_unit), grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
+                    'Estado': str(stock_status),
+                    'Venta valorizada': locale.format_string("%d", int(round(price * avg_sales)), grouping=True),
+                    'Valorizado': locale.format_string("%d", int(round(price * available_stock)), grouping=True),
+                    'Demora en dias': str(lead_time),
+                    'Fecha próx. compra': str(next_buy) if days_of_coverage != 9999 else "---",
+                    'Caracterización': characterization if merge == 'both' else ('No encontrado en Stock Data' if merge == 'left_only' else 'No encontrado en Historical Data'),
+                    'Sobrante (unidades)': locale.format_string("%d", overflow_units, grouping=True),
+                    'Cobertura prox. compra (días)': str(days_of_coverage - next_buy_days),
+                    'Sobrante valorizado': locale.format_string("%d", int(round(overflow_price)), grouping=True),
+                    'Lote optimo de compra': optimal_batch,
+                    'Stock seguridad en dias': str(safety_stock),
+                    'Unidad de compra': purchase_unit,
+                    'Lote de compra': lot_sizing,
+                    'Precio unitario': price,
+                    'MTO': make_to_order if make_to_order == 'MTO' else '',
+                    'OB': is_obs if is_obs == 'OB' else '',
+                    'ABC': abc_class,
+                    'XYZ': item['XYZ']
+                }
 
-            results.append(stock)
+                results.append(stock)
+        
+            return results, safety_stock_is_zero
+        except Exception as err:
+            print(err)
 
-        return results, safety_stock_is_zero
 
     @staticmethod
     def calculate_safety_stock(data: List[Dict[str, Any]]):
-        final_data = []
+        try:
+            final_data = []
 
-        for product in data:
-            avg_sales_per_day = product['avg_sales_per_day_historical']
-            desv_per_day = product['desv_per_day_historical']
-            lead_time = product['Lead Time']
-            service_level = product['Service Level'] / 100
-            desv_est_lt_days = product['Desv Est Lt Days']
-            service_level_factor = round(erfinv(2 * service_level - 1) * 2**0.5, 2)
-            desv_comb = round(((lead_time * desv_per_day * desv_per_day) + (avg_sales_per_day * avg_sales_per_day
-                                                                      * desv_est_lt_days * desv_est_lt_days)) ** 0.5, 2)
+            for product in data:
+                avg_sales_per_day = float(product['avg_sales_per_day_historical'])
+                desv_per_day = float(product['desv_per_day_historical'])
+                lead_time = int(product['Lead Time'])
+                service_level = float(product['Service Level']) / 100
+                desv_est_lt_days = int(product['Desv Est Lt Days'])
+                service_level_factor = round(erfinv(2 * service_level - 1) * 2**0.5, 2)
+                desv_comb = round(((lead_time * desv_per_day * desv_per_day) + (avg_sales_per_day * avg_sales_per_day* desv_est_lt_days * desv_est_lt_days)) ** 0.5, 2)
 
-            safety_stock_units = round(service_level_factor * desv_comb, 2)
-            reorder_point = round(lead_time * avg_sales_per_day + safety_stock_units, 2)
-            safety_stock_days = round(safety_stock_units / avg_sales_per_day, 2) if avg_sales_per_day != 0 else 0
+                safety_stock_units = round(service_level_factor * desv_comb, 2)
+                reorder_point = round(lead_time * avg_sales_per_day + safety_stock_units, 2)
+                safety_stock_days = round(safety_stock_units / avg_sales_per_day, 2) if avg_sales_per_day != 0 else 0
 
-            safety_stock = {
-                'Familia': str(product['Family']),
-                'Categoria': str(product['Category']),
-                'Vendedor': str(product['Salesman']),
-                'Subcategoria': str(product['Subcategory']),
-                'Cliente': (product['Client']),
-                'Región': str(product['Region']),
-                'SKU': str(product['SKU']),
-                'Descripción': str(product['Description']),
-                'Promedio': str(avg_sales_per_day),
-                'Desviacion': str(desv_per_day),
-                'Coeficiente desviacion': str(round(avg_sales_per_day / desv_per_day, 2)) if desv_per_day != 0 else 0,
-                'Tiempo demora': str(lead_time),
-                'Variabilidad demora': str(desv_est_lt_days),
-                'Nivel servicio': str(service_level),
-                'Factor Nivel Servicio': str(service_level_factor),
-                'Desviacion combinada': str(desv_comb),
-                'Punto reorden': str(reorder_point),
-                'Stock Seguridad (días)': str(safety_stock_days),
-                'Stock Seguridad (unidad)': str(safety_stock_units)
-            }
+                safety_stock = {
+                    'Familia': str(product['Family']),
+                    'Categoria': str(product['Category']),
+                    'Vendedor': str(product['Salesman']),
+                    'Subcategoria': str(product['Subcategory']),
+                    'Cliente': (product['Client']),
+                    'Región': str(product['Region']),
+                    'SKU': str(product['SKU']),
+                    'Descripción': str(product['Description']),
+                    'Promedio': str(avg_sales_per_day),
+                    'Desviacion': str(desv_per_day),
+                    'Coeficiente desviacion': str(round(float(avg_sales_per_day) / float(desv_per_day), 2)) if float(desv_per_day) != 0 else 0,
+                    'Tiempo demora': str(lead_time),
+                    'Variabilidad demora': str(desv_est_lt_days),
+                    'Nivel servicio': str(service_level),
+                    'Factor Nivel Servicio': str(service_level_factor),
+                    'Desviacion combinada': str(desv_comb),
+                    'Punto reorden': str(reorder_point),
+                    'Stock Seguridad (días)': str(safety_stock_days),
+                    'Stock Seguridad (unidad)': str(safety_stock_units)
+                }
 
-            final_data.append(safety_stock)
+                final_data.append(safety_stock)
 
-        return final_data
+            return final_data
+        except Exception as err:
+            print(err)
 
     @staticmethod
     def traffic_light(products):
-        count_articles = defaultdict(int)
-        sum_sales = defaultdict(float)
-        sum_stock = defaultdict(float)
+        try:
+            count_articles = defaultdict(int)
+            sum_sales = defaultdict(float)
+            sum_stock = defaultdict(float)
+            sum_valued_sales = defaultdict(int)
+            sum_valued_stock = defaultdict(int)
+            sum_overflow = defaultdict(int)
 
-        for product in products:
-            avg_sales =  product["Venta diaria histórico"] 
-            caracterizacion = product["Caracterización"]
-            count_articles[caracterizacion] += 1
-            sum_sales[caracterizacion] += float(avg_sales)
-            sum_stock[caracterizacion] += float(product["Stock"])
+            for product in products:
+                avg_sales =  product["Venta diaria histórico"]
+                caracterizacion = product["Caracterización"]
+                count_articles[caracterizacion] += 1
+                sum_sales[caracterizacion] += float(avg_sales)
+                sum_stock[caracterizacion] += float(product["Stock"])
+                sum_valued_sales[caracterizacion] += int(locale.atof(product["Venta valorizada"]))
+                sum_valued_stock[caracterizacion] += int(locale.atof(product["Valorizado"]))
+                sum_overflow[caracterizacion] += int(locale.atof(product["Sobrante valorizado"]))  
 
-        result = [
-            {"Caracterización": key, "Cantidad de productos": count_articles[key],
-             "Suma venta diaria": round(sum_sales[key], 2), "Suma de stock": round(sum_stock[key], 2)}
-            for key in count_articles
-        ]
+            result = [
+                {
+                    "Caracterización": key, 
+                    "Cantidad de productos": locale.format_string("%d", count_articles[key], grouping=True),
+                    "Suma venta diaria": locale.format_string("%d",round(sum_sales[key], 2), grouping=True), 
+                    "Suma de stock": locale.format_string("%d",round(sum_stock[key], 2), grouping=True), 
+                    "Venta valorizada": locale.format_string("%d",round(sum_valued_sales[key]), grouping=True), 
+                    "Stock valorizado": locale.format_string("%d",round(sum_valued_stock[key]), grouping=True),
+                    "Sobrante valorizado": locale.format_string("%d",round(sum_overflow[key]), grouping=True),
+                }
+                for key in count_articles
+            ]
 
-        total_count_articles = sum(count_articles.values())
-        total_sum_sales = sum(sum_sales.values())
-        total_sum_stock = sum(sum_stock.values())
-        result.append({"Caracterización": "Suma total", "Cantidad de productos": total_count_articles,
-                       "Suma venta diaria": round(total_sum_sales, 2), "Suma de stock": round(total_sum_stock, 2)})
+            total_count_articles = sum(count_articles.values())
+            total_sum_sales = sum(sum_sales.values())
+            total_sum_stock = sum(sum_stock.values())
+            total_valued_sales = sum(sum_valued_sales.values())
+            total_valued_stock = sum(sum_valued_stock.values())
+            total_overflow = sum(sum_overflow.values())
 
-        sorted_results = sorted(result, key=lambda item: item["Caracterización"])
+            result.append({
+                "Caracterización": "Suma total", 
+                "Cantidad de productos": locale.format_string("%d", total_count_articles, grouping=True),
+                "Suma venta diaria": locale.format_string("%d", round(total_sum_sales, 2), grouping=True), 
+                "Suma de stock": locale.format_string("%d",round(total_sum_stock, 2), grouping=True), 
+                "Venta valorizada": locale.format_string("%d", round(total_valued_sales, 2), grouping=True),
+                "Stock valorizado": locale.format_string("%d", round(total_valued_stock, 2), grouping=True),
+                "Sobrante valorizado": locale.format_string("%d", round(total_overflow, 2), grouping=True)
+            })
 
-        return sorted_results
+            sorted_results = sorted(result, key=lambda item: item["Caracterización"])
+
+            return sorted_results
+        except Exception as err:
+            print(err)
 
     @authentication_classes([TokenAuthentication])
     @permission_classes([IsAuthenticated])
@@ -406,9 +452,6 @@ class StockDataView(APIView):
             
             else:
                 tables, max_historical_date = self.get_data(project_pk=project_pk, scenario=scenario, only_traffic_light=False)
-
-            if len(tables["historical"]) != len(tables["stock"]):
-                return Response(data={'error': 'stock_hsd_dif_len'}, status=status.HTTP_400_BAD_REQUEST)
 
             data = self.calculate_avg_desv_varcoefficient(historical=tables["historical"], stock=tables["stock"], forecast=tables["forecast"], 
             forecast_periods=forecast_periods, historical_periods=historical_periods, max_hsd=max_historical_date)
