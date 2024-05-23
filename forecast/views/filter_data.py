@@ -24,16 +24,25 @@ class FilterDataViews(APIView):
                 scenario_id = filters.validated_data['scenario_id']
                 filter_name = filters.validated_data['filter_name']
                 filter_value = filters.validated_data['filter_value']
+                conditions = request.data.get('conditions')
                 scenario = ForecastScenario.objects.filter(pk=scenario_id).first()
                 error_method = scenario.error_type
                 table_name = scenario.predictions_table_name
                 pred_p = scenario.pred_p
 
+                query_conditions = ""
+                if conditions:
+                   query_conditions = " AND ".join([f"{key} = '{value}'" for condition in conditions for key, value in condition.items()])
+
                 with connection.cursor() as cursor:
-                    cursor.execute(f'''
-                        SELECT * FROM {table_name} 
-                        WHERE {filter_name} = "{filter_value}"'''
-                    )
+                    if filter_name == 'SKU':
+                        query = f'SELECT * FROM {table_name} WHERE SKU = "{filter_value}"'
+                    else:
+                        query = f"SELECT * FROM {table_name} WHERE {query_conditions}"
+
+                    print(query)
+
+                    cursor.execute(query)
                     data_rows = cursor.fetchall()
 
                     cursor.execute(f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dtafio' AND TABLE_NAME = '{table_name}';")
@@ -84,6 +93,7 @@ class GetFiltersView(APIView):
                 filter_name = filters.validated_data['filter_name']
                 scenario = ForecastScenario.objects.filter(pk=scenario_id).first()
                 table_name = scenario.predictions_table_name
+                conditions = request.data.get('conditions', [])
 
                 if filter_name == 'date':
                     with connection.cursor() as cursor:
@@ -97,11 +107,29 @@ class GetFiltersView(APIView):
 
                 else:
                     with connection.cursor() as cursor:
-                        cursor.execute(f'''
-                        SELECT 
-                            {'CONCAT(SKU, " ", DESCRIPTION)' if filter_name == "SKU" else f'DISTINCT({filter_name})'} 
-                        FROM {table_name}''')
+                        where_clauses = []
+                        
+                        if len(conditions) > 0:
+                            for condition in conditions:
+                                for key, value in condition.items():
+                                    if isinstance(value, str):
+                                        where_clauses.append(f"{key} = '{value}'")
+                                    else:
+                                        where_clauses.append(f"{key} = {value}")
 
+
+                            where_clause = ' AND '.join(where_clauses)
+                            if where_clause:
+                                where_clause = f"WHERE {where_clause}"
+
+                        query = f'''
+                            SELECT 
+                                {'CONCAT(SKU, " ", DESCRIPTION)' if filter_name == "SKU" else f'DISTINCT({filter_name})'} 
+                            FROM {table_name} {where_clause if len(conditions) > 0 else None}
+                        '''
+                        print(query)
+
+                        cursor.execute(query)
                         rows = cursor.fetchall()
                         filter_names = []
 
@@ -109,6 +137,7 @@ class GetFiltersView(APIView):
                             filter_names.append(row[0])
 
                         return Response(filter_names, status=status.HTTP_200_OK)
+                    
             except Exception as err:
                 print(err)
 

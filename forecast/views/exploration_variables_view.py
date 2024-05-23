@@ -8,7 +8,8 @@ from database.db_engine import engine
 from files.file_model import FileRefModel
 from django.db import connection
 import pandas as pd
-
+import locale
+locale.setlocale(locale.LC_ALL, 'es_ES.utf8')
 
 class FilterValuesView(APIView):
     @authentication_classes([TokenAuthentication])
@@ -37,46 +38,66 @@ class HistoricalDataView(APIView):
     def post(self, request):
         project_pk = request.data.get('project_id')
         filter_name = request.data.get('filter_name')
+        component = request.data.get('component')
 
         hsd = FileRefModel.objects.filter(project_id=project_pk, model_type_id=1).first()
         columns_to_delete_hsd = ['Family', 'Region', 'Salesman', 'Client', 'Category', 'SKU', 'Description',
                                  'Subcategory', 'Starting Year', 'Starting Period',
                                  'Periods Per Year', 'Periods Per Cycle']
+        try:
+            if component == 'graph':
 
-        if filter_name == 'all':
-            hsd_table = pd.read_sql_table(table_name=hsd.file_name, con=engine)
-            date_columns_hsd = hsd_table.columns[12:]
-            hsd_sum = hsd_table[date_columns_hsd].sum()
-            hsd_data = {'x': date_columns_hsd.to_list(), 'y': hsd_sum.to_list()}
-            return Response(data=hsd_data, status=status.HTTP_200_OK)
+                if filter_name == 'all':
+                    hsd_table = pd.read_sql_table(table_name=hsd.file_name, con=engine)
+                    date_columns_hsd = hsd_table.columns[12:]
+                    hsd_sum = hsd_table[date_columns_hsd].sum()
+                    hsd_data = {'x': date_columns_hsd.to_list(), 'y': hsd_sum.to_list()}
+                    return Response(data=hsd_data, status=status.HTTP_200_OK)
 
-        else:
-            with connection.cursor() as cursor:
-                cursor.execute(f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dtafio' AND TABLE_NAME = '{hsd.file_name}';")
-                columns = cursor.fetchall()
-                columns_date = []
+                else:
+                    with connection.cursor() as cursor:
+                        cursor.execute(f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dtafio' AND TABLE_NAME = '{hsd.file_name}';")
+                        columns = cursor.fetchall()
+                        columns_date = []
 
-                for col in columns:
-                    if col[0] not in columns_to_delete_hsd:
-                        columns_date.append(col[0])
+                        for col in columns:
+                            if col[0] not in columns_to_delete_hsd:
+                                columns_date.append(col[0])
 
-                sum_columns = ', '.join([f'SUM(`{date}`)' for date in columns_date])
+                        sum_columns = ', '.join([f'SUM(`{date}`)' for date in columns_date])
 
-                cursor.execute(f'SELECT {filter_name}, {sum_columns} FROM {hsd.file_name} GROUP BY {filter_name}')
-                data = cursor.fetchall()
+                        cursor.execute(f'SELECT {filter_name}, {sum_columns} FROM {hsd.file_name} GROUP BY {filter_name}')
+                        data = cursor.fetchall()
 
-        data_dict = {
-            'x': columns_date,
-            'y': {}
-        }
+                data_dict = {
+                    'x': columns_date,
+                    'y': {}
+                }
 
-        for item in data:
-            category_name = item[0]
-            sales_values = item[1:]
-            data_dict['y'][category_name] = sales_values
-        
+                for item in data:
+                    category_name = item[0]
+                    sales_values = item[1:]
+                    data_dict['y'][category_name] = sales_values
+                
 
-        return Response(data=data_dict, status=status.HTTP_200_OK)
+                return Response(data=data_dict, status=status.HTTP_200_OK)
+            
+            else:
+                hsd_table = pd.read_sql_table(table_name=hsd.file_name, con=engine)
+                data_table = hsd_table.to_dict(orient='records')
+                date_columns_hsd = hsd_table.columns[12:]
+
+                for row in data_table:
+                    for col in date_columns_hsd:
+                        if pd.notnull(row[col]):  # Verificar si el valor no es nulo
+                            row[col] = locale.format_string("%d", int(round(row[col])), grouping=True)
+
+                return Response(data=data_table, status=status.HTTP_200_OK)
+                
+        except Exception as err:
+            print(err)
+
+    
 
 
 class AllocationMatrixView(APIView):
