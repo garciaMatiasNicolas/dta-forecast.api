@@ -25,46 +25,49 @@ class StockDataView(APIView):
     # -- METHODS FOR GET DATA FROM DB -- #
     @staticmethod
     def get_data(project_pk: int, only_traffic_light: bool, scenario: int = None, filter_name: str = None, filter_value: str = None):
-        max_historical_date = ""
-
-        if scenario:
-            forecast_data = ForecastScenario.objects.get(pk=scenario)
-            max_historical_date = forecast_data.max_historical_date.strftime('%Y-%m-%d')
-            
-            if forecast_data is None:
-                table_forecast = None
-        
-            else:
-                query = f"SELECT * FROM {forecast_data.predictions_table_name} WHERE model != 'actual'"
-                if only_traffic_light and filter_name and filter_value:
-                    query += f" AND {filter_name} = '{filter_value}'"
+        try:
+            max_historical_date = ""
+    
+            if scenario:
+                forecast_data = ForecastScenario.objects.get(pk=scenario)
+                max_historical_date = forecast_data.max_historical_date.strftime('%Y-%m-%d')
                 
-                table_forecast = pd.read_sql_query(query, engine)
-        
-        else:
-            table_forecast = None
-
-        historical_data = FileRefModel.objects.filter(project_id=project_pk, model_type_id=1).first()
-        if historical_data is None:
-            raise ValueError("Historical_not_found")
-
-        table_historical = pd.read_sql_table(table_name=historical_data.file_name, con=engine)
-
-        stock_data = FileRefModel.objects.filter(project_id=project_pk, model_type_id=4).first()
-        if stock_data is None:
-            raise ValueError("Stock_data_not_found")
-
-        table_stock = pd.read_sql_table(table_name=stock_data.file_name, con=engine)
-
-        if only_traffic_light:
-            print(filter_name)
-            print(filter_value)
-            table_historical = table_historical[table_historical[filter_name] == filter_value]
-            table_stock = table_stock[table_stock[filter_name] == filter_value]
-
-        tables = {"historical": table_historical, "stock": table_stock, "forecast": table_forecast}
-
-        return tables, max_historical_date
+                if forecast_data is None:
+                    table_forecast = None
+            
+                else:
+                    query = f"SELECT * FROM {forecast_data.predictions_table_name} WHERE model != 'actual'"
+                    if only_traffic_light and filter_name and filter_value:
+                        query += f" AND {filter_name} = '{filter_value}'"
+                    
+                    table_forecast = pd.read_sql_query(query, engine)
+            
+            else:
+                table_forecast = None
+    
+            historical_data = FileRefModel.objects.filter(project_id=project_pk, model_type_id=1).first()
+            if historical_data is None:
+                raise ValueError("Historical_not_found")
+    
+            table_historical = pd.read_sql_table(table_name=historical_data.file_name, con=engine)
+    
+            stock_data = FileRefModel.objects.filter(project_id=project_pk, model_type_id=4).first()
+            if stock_data is None:
+                raise ValueError("Stock_data_not_found")
+    
+            table_stock = pd.read_sql_table(table_name=stock_data.file_name, con=engine)
+    
+            if only_traffic_light:
+                print(filter_name)
+                print(filter_value)
+                table_historical = table_historical[table_historical[filter_name] == filter_value]
+                table_stock = table_stock[table_stock[filter_name] == filter_value]
+    
+            tables = {"historical": table_historical, "stock": table_stock, "forecast": table_forecast}
+    
+            return tables, max_historical_date
+        except Exception as err:
+            print(err)
 
     # --- METHODS FOR CALCULATE STOCK --- #
     @staticmethod
@@ -179,21 +182,24 @@ class StockDataView(APIView):
 
     @staticmethod
     def calculate_abc(products, is_forecast):
-        total = sum(product[f'total_sales_{"forecast" if is_forecast else "historical"}'] for product in products)
-        products.sort(key=lambda x: x[f'total_sales_{"forecast" if is_forecast else "historical"}'], reverse=True)
-
-        abc_data = []
-        acum = 0
-
-        for product in products:
-            acum += product[f'total_sales_{"forecast" if is_forecast else "historical"}']
-            abc_class = 'A' if acum / total <= 0.2 else (
-                'B' if acum / total <= 0.8 else 'C')
-
-            abc = {"SKU": product['SKU'], "ABC": abc_class}
-            abc_data.append(abc)
-
-        return abc_data
+        try:
+            total = sum(product[f'total_sales_{"forecast" if is_forecast else "historical"}'] for product in products)
+            products.sort(key=lambda x: x[f'total_sales_{"forecast" if is_forecast else "historical"}'], reverse=True)
+    
+            abc_data = []
+            acum = 0
+    
+            for product in products:
+                acum += product[f'total_sales_{"forecast" if is_forecast else "historical"}']
+                abc_class = 'A' if acum / total <= 0.2 else (
+                    'B' if acum / total <= 0.8 else 'C')
+    
+                abc = {"SKU": product['SKU'], "ABC": abc_class}
+                abc_data.append(abc)
+    
+            return abc_data
+        except Exception as err:
+            print(err)
 
     def calculate_stock(self, data: List[Dict[str, Any]], next_buy_days: int, is_forecast: bool) -> (
             tuple)[list[dict[str | Any, int | str | datetime | Any]], bool]:
