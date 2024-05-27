@@ -45,10 +45,16 @@ class FilterDataViews(APIView):
                     cursor.execute(query)
                     data_rows = cursor.fetchall()
 
-                    cursor.execute(f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dtafio' AND TABLE_NAME = '{table_name}';")
+                    cursor.execute(f"SHOW COLUMNS FROM {table_name} FROM dtafio;")
                     columns = cursor.fetchall()
+                    cols = []
 
-                    df_pred = pd.DataFrame(data=data_rows, columns=columns)
+                    for col in columns:
+                        cols.append((col[0],))
+                    
+                    cols = tuple(cols)
+
+                    df_pred = pd.DataFrame(data=data_rows, columns=cols)
                     df_pred = df_pred.drop(columns=[(error_method,)])
                     actual_rows = df_pred[df_pred[('model',)] == 'actual']
                     other_rows = df_pred[df_pred[('model',)] != 'actual']

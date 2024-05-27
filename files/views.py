@@ -51,9 +51,8 @@ class ExcelFileUploadView(viewsets.ModelViewSet):
                 return Response({'message': 'file_uploaded'},
                                 status=status.HTTP_201_CREATED)
 
-            except ValueError as err:
+            except Exception as err:
                 err = str(err)
-                print(err)
                 # Delete file from server
                 route = os.path.join('media', route)
                 if os.path.exists(route):
@@ -74,7 +73,7 @@ class ExcelFileUploadView(viewsets.ModelViewSet):
                 if err == "cols_exog_endog_not_match":
                     return Response(data={'error': 'dates_dont_match'}, status=status.HTTP_400_BAD_REQUEST)
 
-                return Response({'error': 'other_value_error'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'other_value_error', 'log': err}, status=status.HTTP_400_BAD_REQUEST)
 
         else:
             return Response({'error': 'bad_request', 'logs': file_serializer.errors},

@@ -162,6 +162,10 @@ class RunModelsViews(APIView):
                         result_holder['result'] = result
 
                     except Exception as errorModels:
+
+                        if Exception is ValueError:
+                            print("VALUE ERROR", errorModels)
+
                         print("Error en corrida: ", str(errorModels))
                         traceback.print_exc()
                         result_holder['error'] = str(errorModels)

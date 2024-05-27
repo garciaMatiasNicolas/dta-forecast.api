@@ -85,17 +85,22 @@ def best_model(df_historical: pd.DataFrame, test_p: int, pred_p: int, error_peri
 
         if 'holtsExponentialSmoothing' in models:
 
-            holt_df, holt_mape, holt_last_error = holt_winters_holt_EMA.holts_winters_holts_ema(row=row,
-                                                                               test_periods=test_p,
-                                                                               prediction_periods=pred_p,
-                                                                               additional_params=additional_params,
-                                                                               model_name='holt',
-                                                                               seasonal_periods=seasonal_order_value,
-                                                                               error_method=error_method,
-                                                                               error_periods=error_periods)
+            try:
+                holt_df, holt_mape, holt_last_error = holt_winters_holt_EMA.holts_winters_holts_ema(row=row,
+                                                                                test_periods=test_p,
+                                                                                prediction_periods=pred_p,
+                                                                                additional_params=additional_params,
+                                                                                model_name='holt',
+                                                                                seasonal_periods=seasonal_order_value,
+                                                                                error_method=error_method,
+                                                                                error_periods=error_periods)
 
-            model_data['holtsExponentialSmoothing'] = {error_method: holt_mape, 'df': holt_df}
-            last_errors.append(holt_last_error)
+                model_data['holtsExponentialSmoothing'] = {error_method: holt_mape, 'df': holt_df}
+                last_errors.append(holt_last_error)
+            
+            except ValueError as err:
+                print("ERROR DE PERIODOS")
+                return err
 
         if 'exponential_moving_average' in models:
             ema_df, ema_mape, ema_last_error = holt_winters_holt_EMA.holts_winters_holts_ema(row=row, test_periods=test_p,
