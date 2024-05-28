@@ -234,8 +234,8 @@ class StockDataView(APIView):
                 avg_sales = float(item[f'avg_sales_per_day_{"forecast" if is_forecast else "historical"}'])
                 stock = float(item["Stock"])
                 available_stock = float(item['Stock']) - float(item['Sales Order Pending Deliverys'])# float(item["Available Stock"]) 
-                lead_time = int(item['Lead Time'])
-                safety_stock = int(item['Safety stock (days)'])
+                lead_time = float(item['Lead Time'])
+                safety_stock = float(item['Safety stock (days)'])
                 reorder_point = next_buy_days + lead_time + safety_stock
                 days_of_coverage = round(available_stock / avg_sales) if avg_sales != 0 else 9999
                 buy = 'Si' if (days_of_coverage - reorder_point) < 1 else 'No'
