@@ -218,6 +218,12 @@ class StockDataView(APIView):
                 factor = n / dec
                 factor = round(factor)
                 return factor * dec
+            
+            def try_parse_float(value):
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    return 0.0
 
             safety_stock_is_zero = verify_safety_stock_zero(data)
 
@@ -228,26 +234,26 @@ class StockDataView(APIView):
 
             for item in data:
                 abc_class = abc_dict.get(str(item['SKU']), 'N/A')
-                avg_sales_historical = float(item["avg_sales_per_day_historical"])
-                price = float(item['Price'])
-                purchase_order = float(item['Purchase Order'])
-                avg_sales_forecast = float(item["avg_sales_per_day_forecast"]) 
-                avg_sales = float(item[f'avg_sales_per_day_{"forecast" if is_forecast else "historical"}'])
-                stock = float(item["Stock"])
-                available_stock = float(item['Stock']) - float(item['Sales Order Pending Deliverys']) + purchase_order 
-                lead_time = float(item['Lead Time'])
-                safety_stock = float(item['Safety stock (days)'])
+                avg_sales_historical = try_parse_float(item["avg_sales_per_day_historical"])
+                price = try_parse_float(item['Price'])
+                purchase_order = try_parse_float(item['Purchase Order'])
+                avg_sales_forecast = try_parse_float(item["avg_sales_per_day_forecast"])
+                avg_sales = try_parse_float(item[f'avg_sales_per_day_{"forecast" if is_forecast else "historical"}'])
+                stock = try_parse_float(item["Stock"])
+                available_stock = stock - try_parse_float(item['Sales Order Pending Deliverys']) + purchase_order
+                lead_time = try_parse_float(item['Lead Time'])
+                safety_stock = try_parse_float(item['Safety stock (days)'])
                 reorder_point = next_buy_days + lead_time + safety_stock
                 days_of_coverage = round(available_stock / avg_sales) if avg_sales != 0 else 9999
                 buy = 'Si' if (days_of_coverage - reorder_point) < 1 else 'No'
-                optimal_batch = float(item["EOQ (Economical order quantity)"])
+                optimal_batch = try_parse_float(item["EOQ (Economical order quantity)"])
                 how_much = max(optimal_batch, (next_buy_days + lead_time + safety_stock - days_of_coverage) * avg_sales ) if buy == 'Si' else 0
-                overflow_units = stock if avg_sales == 0 else (0 if days_of_coverage - reorder_point < 0 else round((days_of_coverage - reorder_point)*avg_sales/30)) 
-                overflow_price = round(overflow_units*price)
-                lot_sizing = float(item['Lot Sizing'])
-                sales_order = float(item['Sales Order Pending Deliverys'])
+                overflow_units = stock if avg_sales == 0 else (0 if days_of_coverage - reorder_point < 0 else round((days_of_coverage - reorder_point) * avg_sales / 30))
+                overflow_price = round(overflow_units * price)
+                lot_sizing = try_parse_float(item['Lot Sizing'])
+                sales_order = try_parse_float(item['Sales Order Pending Deliverys'])
                 is_obs = str(item['Slow moving'])
-                purchase_unit = float(item['Purchase unit'])
+                purchase_unit = try_parse_float(item['Purchase unit'])
                 make_to_order = str(item['Make to order'])
                 merge = str(item['_merge'])
                 
