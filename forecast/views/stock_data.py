@@ -230,10 +230,11 @@ class StockDataView(APIView):
                 abc_class = abc_dict.get(str(item['SKU']), 'N/A')
                 avg_sales_historical = float(item["avg_sales_per_day_historical"])
                 price = float(item['Price'])
+                purchase_order = float(item['Purchase Order'])
                 avg_sales_forecast = float(item["avg_sales_per_day_forecast"]) 
                 avg_sales = float(item[f'avg_sales_per_day_{"forecast" if is_forecast else "historical"}'])
                 stock = float(item["Stock"])
-                available_stock = float(item['Stock']) - float(item['Sales Order Pending Deliverys'])# float(item["Available Stock"]) 
+                available_stock = float(item['Stock']) - float(item['Sales Order Pending Deliverys']) + purchase_order 
                 lead_time = float(item['Lead Time'])
                 safety_stock = float(item['Safety stock (days)'])
                 reorder_point = next_buy_days + lead_time + safety_stock
@@ -244,7 +245,6 @@ class StockDataView(APIView):
                 overflow_units = stock if avg_sales == 0 else (0 if days_of_coverage - reorder_point < 0 else round((days_of_coverage - reorder_point)*avg_sales/30)) 
                 overflow_price = round(overflow_units*price)
                 lot_sizing = float(item['Lot Sizing'])
-                purchase_order = float(item['Purchase Order'])
                 sales_order = float(item['Sales Order Pending Deliverys'])
                 is_obs = str(item['Slow moving'])
                 purchase_unit = float(item['Purchase unit'])
