@@ -353,9 +353,9 @@ class StockDataView(APIView):
             for product in data:
                 avg_sales_per_day = float(product['avg_sales_per_day_historical'])
                 desv_per_day = float(product['desv_per_day_historical'])
-                lead_time = float(product['Lead Time'])
+                lead_time = int(float(product['Lead Time']))
                 service_level = float(product['Service Level']) / 100
-                desv_est_lt_days = float(product['Desv Est Lt Days'])
+                desv_est_lt_days = int(float(product['Desv Est Lt Days']))
                 service_level_factor = round(erfinv(2 * service_level - 1) * 2**0.5, 2)
                 desv_comb = round(((lead_time * desv_per_day * desv_per_day) + (avg_sales_per_day * avg_sales_per_day* desv_est_lt_days * desv_est_lt_days)) ** 0.5, 2)
 
