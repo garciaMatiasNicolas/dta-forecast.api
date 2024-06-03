@@ -60,9 +60,17 @@ class ReportDataViews(APIView):
                 last_quarter_since_last_date = list_date_columns[last_date_index - 3:last_date_index + 1]
                 last_month = list_date_columns[last_date_index]
 
+                print("ULTIMO AÑO: ", last_year_since_last_date)
+                print("ULTIMO CUATRIMESTRE: ", last_quarter_since_last_date)
+                print("ULTIMO MES: ", last_month)
+
                 next_year_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 13]
                 next_quarter_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 5]
                 next_month_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 2]
+
+                print("PROXIMO AÑO: ", next_year_since_last_date)
+                print("PROXIMO CUATRIMESTRE: ", next_quarter_since_last_date)
+                print("PROXIMO MES: ", next_month_since_last_date)
 
                 if last_date_index - 23 >= 0:
                     dates_a = list_date_columns[last_date_index - 23:last_date_index - 11]
@@ -71,6 +79,10 @@ class ReportDataViews(APIView):
                     
                 dates_b = dates_a[-4:]
                 dates_c = dates_a[-1]
+
+                print("ANTEULTIMO AÑO: ", dates_a)
+                print("ANTEULTIMO CUATRIMESTRE: ", dates_b)
+                print("ANTEULTIMO MES: ", dates_c)
 
                 dates_d = last_year_since_last_date[:4]
                 dates_e = dates_d[0]
@@ -108,6 +120,7 @@ class ReportDataViews(APIView):
                 for date_range, date_name in zip(date_ranges, reports_name):
                     dates_report = self.join_dates(list_dates=date_range, for_report=True)
                     reports_data[date_name] = dates_report
+                
 
                 actual_dates = f'''
                     SELECT
@@ -197,7 +210,7 @@ class ReportDataViews(APIView):
             month = filters.validated_data['filter_value']
             scenario = ForecastScenario.objects.filter(pk=scenario_id).first()
             predictions_table_name = scenario.predictions_table_name
-
+        
             with connection.cursor() as cursor:
                 last_date = scenario.max_historical_date
 
@@ -255,9 +268,11 @@ class ReportDataViews(APIView):
 
                 cursor.execute(sql=query_for_past_dates)
                 past_data = cursor.fetchall()
+                print(past_data)
 
                 cursor.execute(sql=query_for_future_dates)
                 future_data = cursor.fetchall()
+                print(future_data)
 
                 dict_values = {tupla[0]: tupla[1] for tupla in future_data}
 
