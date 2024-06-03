@@ -64,7 +64,11 @@ class ReportDataViews(APIView):
                 next_quarter_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 5]
                 next_month_since_last_date = list_date_columns[last_date_index + 1:last_date_index + 2]
 
-                dates_a = list_date_columns[last_date_index - 23:last_date_index - 11]
+                if last_date_index - 23 >= 0:
+                    dates_a = list_date_columns[last_date_index - 23:last_date_index - 11]
+                else:
+                    dates_a = list_date_columns[:last_date_index - 11]
+                    
                 dates_b = dates_a[-4:]
                 dates_c = dates_a[-1]
 
@@ -152,7 +156,6 @@ class ReportDataViews(APIView):
                     FROM {predictions_table_name}
                     WHERE model != 'actual';
                 '''
-
 
                 cursor.execute(sql=actual_dates)
                 actual_dates = cursor.fetchall()
