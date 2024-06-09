@@ -1,97 +1,16 @@
-import numpy as np
 import pandas as pd
-
+import numpy as np
 
 class Error:
 
-    def __init__(self, model_name: str, error_method: str, error_periods: int, dataframe: pd.DataFrame = None):
-        self.df = dataframe
-        self.model_name = model_name
+    def __init__(self, error_method: str, error_periods: int, actual, predicted):
         self.error_method = error_method
         self.error_periods = error_periods
+        self.actual = actual
+        self.predicted = predicted
 
         if self.error_method not in ['MAE', 'MAPE', 'SMAPE', 'RMSE']:
             raise ValueError("Invalid error_method. Use 'MAE', 'MAPE', 'SMAPE', 'RMSE'.")
-
-    def calculate_error(self) -> float:
-        absolute_errors = []
-
-        if self.error_periods == 0:
-            last_twelve_periods_predicted = self.df.xs(self.model_name, level='model')
-            last_twelve_periods_actual = self.df.xs('actual', level='model')
-
-        else:
-            last_twelve_periods_predicted = self.df.xs(self.model_name, level='model').iloc[:, -self.error_periods:]
-            last_twelve_periods_actual = self.df.xs('actual', level='model').iloc[:, -self.error_periods:]
-
-        for col in last_twelve_periods_predicted.columns:
-            predicted_col = last_twelve_periods_predicted[col]
-            actual_col = last_twelve_periods_actual[col]
-            n = len(actual_col)
-
-            for i in range(n):
-                error = 0
-                if self.error_method == 'MAPE':
-                    error = self.calculate_mape(predicted=predicted_col[i], actual=actual_col[i])
-
-                if self.error_method == 'SMAPE':
-                    error = self.calculate_smape(predicted=predicted_col[i], actual=actual_col[i])
-
-                if self.error_method == 'MAE':
-                    error = self.calculate_mae(predicted=predicted_col[i], actual=actual_col[i])
-
-                if self.error_method == 'RMSE':
-                    error = self.calculate_rmse(predicted=predicted_col[i], actual=actual_col[i])
-
-                absolute_errors.append(error)
-
-        total_error = round(sum(absolute_errors) / len(absolute_errors), 2)
-        last_period_error = absolute_errors[-1]
-
-        return total_error, last_period_error
-
-    def calculate_error_last_period(self, prediction_periods: int) -> tuple[float, float]:
-        methods = {
-            'MAPE': Error.calculate_mape,
-            'SMAPE': Error.calculate_smape,
-            'RMSE': Error.calculate_rmse,
-            'MAE': Error.calculate_mae
-        }
-
-        last_period_column = prediction_periods + 2
-        last_period = self.df.iloc[:, -last_period_column]
-
-        values = []
-        actual_vals = []
-        predicted_vals = []
-
-        for i in range(0, len(last_period), 2):
-            actual = last_period[i]
-            predicted = last_period[i + 1]
-            actual_vals.append(actual)
-            predicted_vals.append(predicted)
-            error = 0
-
-            if self.error_method in methods:
-                calc_error = methods[self.error_method]
-                error = calc_error(predicted, actual)
-
-            values.append(error)
-
-        absolute_error = 0
-        if self.error_method == 'MAPE':
-            absolute_error = self.calculate_mape(predicted=sum(predicted_vals), actual=sum(actual_vals))
-
-        if self.error_method == 'SMAPE':
-            absolute_error = self.calculate_smape(predicted=sum(predicted_vals), actual=sum(actual_vals))
-
-        if self.error_method == 'MAE':
-            absolute_error = self.calculate_mae(predicted=sum(predicted_vals), actual=sum(actual_vals))
-
-        if self.error_method == 'RMSE':
-            absolute_error = self.calculate_rmse(predicted=sum(predicted_vals), actual=sum(actual_vals))
-
-        return absolute_error
 
     @staticmethod
     def calculate_mape(actual: float, predicted: float) -> float:
@@ -136,6 +55,83 @@ class Error:
             smape = abs((actual - predicted) / ((actual + predicted) / 2)) * 100
 
         return round(smape, 2)
+
+    def calculate_error_periods_selected(self):
+
+        if self.error_periods != 0:
+            predicted = self.predicted[-self.error_periods:]
+            actual = self.actual[-self.error_periods:]
+
+        else:
+            predicted = self.predicted
+            actual = self.actual
+
+        error_values = 0
+        last_period_error = 0
+        error_abs = 0
+
+        if self.error_method == "MAPE":
+            error_values = [self.calculate_mape(actual, predicted) for actual, predicted in zip(actual, predicted)]
+            last_period_error = self.calculate_mape(predicted=predicted[-1], actual=actual[-1])
+
+        if self.error_method == "SMAPE":
+            error_values = [self.calculate_smape(actual, predicted) for actual, predicted in zip(actual, predicted)]
+            last_period_error = self.calculate_smape(predicted=predicted[-1], actual=actual[-1])
+
+        if self.error_method == "MAE":
+            error_values = [self.calculate_mae(actual, predicted) for actual, predicted in zip(actual, predicted)]
+            last_period_error = self.calculate_mae(predicted=predicted[-1], actual=actual[-1])
+
+        if self.error_method == "RMSE":
+            error_values = [self.calculate_rmse(actual, predicted) for actual, predicted in zip(actual, predicted)]
+            last_period_error = self.calculate_rmse(predicted=predicted[-1], actual=actual[-1])
+
+        error = round(np.mean(error_values), 2)
+
+        return error, round(last_period_error, 2)
+
+    def calculate_error_last_period(self, prediction_periods: int, df: pd.DataFrame) -> tuple[float, float]:
+        methods = {
+            'MAPE': Error.calculate_mape,
+            'SMAPE': Error.calculate_smape,
+            'RMSE': Error.calculate_rmse,
+            'MAE': Error.calculate_mae
+        }
+
+        last_period_column = prediction_periods + 2
+        last_period = df.iloc[:, -last_period_column]
+
+        values = []
+        actual_vals = []
+        predicted_vals = []
+
+        for i in range(0, len(last_period), 2):
+            actual = last_period[i]
+            predicted = last_period[i + 1]
+            actual_vals.append(actual)
+            predicted_vals.append(predicted)
+            error = 0
+
+            if self.error_method in methods:
+                calc_error = methods[self.error_method]
+                error = calc_error(predicted, actual)
+
+            values.append(error)
+
+        absolute_error = 0
+        if self.error_method == 'MAPE':
+            absolute_error = self.calculate_mape(predicted=sum(predicted_vals), actual=sum(actual_vals))
+
+        if self.error_method == 'SMAPE':
+            absolute_error = self.calculate_smape(predicted=sum(predicted_vals), actual=sum(actual_vals))
+
+        if self.error_method == 'MAE':
+            absolute_error = self.calculate_mae(predicted=sum(predicted_vals), actual=sum(actual_vals))
+
+        if self.error_method == 'RMSE':
+            absolute_error = self.calculate_rmse(predicted=sum(predicted_vals), actual=sum(actual_vals))
+
+        return absolute_error
 
 
 
