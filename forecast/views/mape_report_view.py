@@ -9,6 +9,8 @@ from ..serializer import FilterData
 from django.db import connection
 from datetime import datetime
 from ..Error import Error
+from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
 
 
 class ErrorReportAPIView(APIView):
@@ -92,18 +94,16 @@ class ErrorGraphicView(APIView):
         return methods
 
     @staticmethod
-    def obtain_last_year_months() -> list:
-        actual_date = datetime.now().date()
-        months = []
-
-        for month in range(12):
-            year = actual_date.year
-            if actual_date.month - month <= 0:
-                year -= 1
-            date = datetime(year, (actual_date.month - month - 1) % 12 + 1, 1)
-            months.append(date.strftime(f'`{"%Y-%m-%d"}`'))
-
-        return months
+    def obtain_last_year_months(start_date, periods) -> list:
+        # Crea una lista para almacenar las fechas
+        date_list = []
+        
+        # Genera las fechas de cada periodo
+        for i in range(periods):
+            new_date = start_date + relativedelta(months=i)
+            date_list.append(new_date.strftime("%Y-%m-%d"))
+        
+        return date_list
 
     @authentication_classes([TokenAuthentication])
     @permission_classes([IsAuthenticated])
@@ -118,12 +118,16 @@ class ErrorGraphicView(APIView):
                 filter_name = filters.validated_data['filter_name']
                 filter_value = filters.validated_data['filter_value']
                 error_method = scenario.error_type
+                max_date = scenario.max_historical_date
+                pred_periods = scenario.pred_p
 
-                last_year_months = self.obtain_last_year_months()
+                print(type(max_date))
+
+                last_year_months = self.obtain_last_year_months(max_date, pred_periods)
                 error_values = []
 
                 if filter_name == "date":
-                    for date in last_year_months:
+                    for date in last_year_months[-12:]:
                         with connection.cursor() as cursor:
 
                             query = f'''
@@ -150,13 +154,13 @@ class ErrorGraphicView(APIView):
                         error_values.append(round(sum(error_values_by_date) / len(error_values_by_date), 2))
 
                 else:
-                    for date in last_year_months:
+                    for date in last_year_months[-12:]:
                         with connection.cursor() as cursor:
                             if filter_name == 'sku':
                                 query = f'''
                                     SELECT
-                                    ROUND(MAX(CASE WHEN MODEL = 'actual' THEN {date} END),2) AS actual, 
-                                    ROUND(MAX(CASE WHEN MODEL != 'actual' THEN {date} END),2) AS fit 
+                                    ROUND(MAX(CASE WHEN MODEL = 'actual' THEN `{date}` END),2) AS actual, 
+                                    ROUND(MAX(CASE WHEN MODEL != 'actual' THEN `{date}` END),2) AS fit 
                                     FROM {table_name} WHERE {filter_name} = {filter_value}
                                     GROUP BY SKU, DESCRIPTION;
                                 '''
@@ -164,8 +168,8 @@ class ErrorGraphicView(APIView):
                             else:
                                 query = f'''
                                     SELECT
-                                    ROUND(MAX(CASE WHEN MODEL = 'actual' THEN {date} END),2) AS actual, 
-                                    ROUND(MAX(CASE WHEN MODEL != 'actual' THEN {date} END),2) AS fit 
+                                    ROUND(MAX(CASE WHEN MODEL = 'actual' THEN `{date}` END),2) AS actual, 
+                                    ROUND(MAX(CASE WHEN MODEL != 'actual' THEN `{date}` END),2) AS fit 
                                     FROM {table_name} WHERE {filter_name} = '{filter_value}'
                                     GROUP BY SKU, DESCRIPTION;
                                 '''
@@ -193,6 +197,7 @@ class ErrorGraphicView(APIView):
                     formatted_date = date_obj.strftime("%Y-%m-%d")
                     dates.append(formatted_date)
 
+                print({'x': dates, 'y': error_values})
                 return Response({'x': dates, 'y': error_values}, status=status.HTTP_200_OK)
 
             else:
