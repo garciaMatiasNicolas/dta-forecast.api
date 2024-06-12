@@ -7,6 +7,7 @@ from .views.mape_report_view import ErrorReportAPIView, ErrorGraphicView
 from .views.exploration_variables_view import (AllocationMatrixView, HistoricalDataView, FilterValuesView,
                                                GetExogVars, ExogenousVariablesTable, ExogenousVariablesGraph, )
 from .views.outliers_graphic import GraphicOutliersView, FiltersHistoricalData
+from .views.product_all import AllProductView
 
 test_model = RunModelsViews.as_view()
 filter_data = FilterDataViews.as_view()
@@ -27,6 +28,7 @@ exog_table = ExogenousVariablesTable.as_view()
 exog_graph = ExogenousVariablesGraph.as_view()
 stock_data = StockDataView.as_view()
 stock_by_product = StockByProduct.as_view()
+product_all = AllProductView.as_view()
 
 urlpatterns = [
     path('test-model', test_model, name='test_model'),
@@ -47,5 +49,6 @@ urlpatterns = [
     path('get-vars-names', get_vars_names, name='get_vars_names'),
     path('get-outliers', outliers, name='outliers'),
     path('stock-data/', stock_data, name='stock-data'),
-    path('stock-product/', stock_by_product, name='stock_by_product')
+    path('stock-product/', stock_by_product, name='stock_by_product'),
+    path('product-all', product_all, name="product_all")
 ]
