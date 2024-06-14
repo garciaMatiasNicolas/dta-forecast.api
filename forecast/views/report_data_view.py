@@ -109,10 +109,9 @@ class ReportDataViews(APIView):
                     dates_report = self.join_dates(list_dates=date_range, for_report=True)
                     reports_data[date_name] = dates_report
                 
-
                 actual_dates = f'''
                     SELECT
-                        {'SKU || " " || DESCRIPTION' if filter_name == "SKU" else filter_name},
+                        {filter_name},
                         ROUND({reports_data["last_year_since_last_date"]}),
                         ROUND({reports_data["last_quarter_since_last_date"]}),
                         ROUND(SUM(`{last_month}`)),
@@ -142,7 +141,7 @@ class ReportDataViews(APIView):
 
                 predicted_dates = f'''
                     SELECT
-                        {'SKU || " " || DESCRIPTION' if filter_name == "SKU" else filter_name},
+                        {filter_name},
                         ROUND({reports_data["next_year_since_last_date"]}),
                         ROUND({reports_data["next_quarter_since_last_date"]}),
                         ROUND({reports_data["next_month_since_last_date"]})
@@ -163,7 +162,7 @@ class ReportDataViews(APIView):
 
                 cursor.execute(sql=predicted_dates)
                 predicted_dates = cursor.fetchall()
-            
+
                 final_data = []
 
                 for predicted, actual in zip(predicted_dates, actual_dates):
@@ -180,6 +179,7 @@ class ReportDataViews(APIView):
                         # Agregar los resultados a la lista final
                         final_data.append([predicted[0], ytd, qtd, mtd, ytg, qtg, mtg])
 
+                print(final_data)
                 # Retornar los datos finales
                 return final_data
             
@@ -236,7 +236,7 @@ class ReportDataViews(APIView):
                 future_cols = self.join_dates(list_dates=future_dates, for_report=False)
 
                 query_for_past_dates = f'''
-                    SELECT {'SKU || " " || DESCRIPTION' if filter_name == "SKU" else filter_name},
+                    SELECT {filter_name},
                         {past_cols}
                     FROM {predictions_table_name}
                     WHERE model = 'actual'
@@ -246,18 +246,16 @@ class ReportDataViews(APIView):
 
                 cursor.execute(sql=query_for_past_dates)
                 past_data = cursor.fetchall()
-                print(past_dates)
 
                 if len(future_dates) > 0:
                     query_for_future_dates = f'''
-                        SELECT {'SKU || " " || DESCRIPTION' if filter_name == "SKU" else filter_name},
+                        SELECT {filter_name},
                             {future_cols}
                         FROM {predictions_table_name}
                         WHERE model != 'actual'
                         {'AND SKU = ' + f"'{str(product)}'" if product else ''}
                         GROUP BY {filter_name};
                     '''
-            
                     cursor.execute(sql=query_for_past_dates)
                     past_data = cursor.fetchall()
 

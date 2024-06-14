@@ -14,18 +14,22 @@ from .report_data_view import ReportDataViews
 class AllProductView(APIView):
     
     @staticmethod
-    def get_data(project_pk: int, sku: str, scenario_pk: int = None):
-        
+    def get_data(project_pk: int, product: dict, scenario_pk: int = None):
+        # Limpiar los valores de texto en el diccionario 'product'
+        cleaned_product = {key: value.strip() if isinstance(value, str) else value for key, value in product.items()}
+
+        # Construir la parte de la consulta WHERE de forma dinámica
+        conditions = " AND ".join([f"{key} = '{value}'" if isinstance(value, str) else f"{key} = {value}" for key, value in cleaned_product.items()])
+
         if scenario_pk is not None:
             table = ForecastScenario.objects.get(pk=scenario_pk)
-            query = f"SELECT * FROM {table.predictions_table_name} WHERE SKU = '{sku}';"
-        
+            query = f"SELECT * FROM {table.predictions_table_name} WHERE {conditions};"
+            print(query)
         else:
             table = FileRefModel.objects.filter(project_id=project_pk, model_type_id=1).first()
-            query = f"SELECT * FROM {table.file_name} WHERE SKU = '{sku}';"
-        
-        data = pd.read_sql_query(query, engine)
+            query = f"SELECT * FROM {table.file_name} WHERE {conditions};"
 
+        data = pd.read_sql_query(query, engine)
         return data
     
     @staticmethod
@@ -146,26 +150,29 @@ class AllProductView(APIView):
     @permission_classes([IsAuthenticated])
     def post(self, request):
         scenario = request.data.get('scenario_pk')
-        sku = request.data.get('sku')
+        product = request.data.get('product')  # Asegúrate de que 'product' es un diccionario con los campos correctos
         project = request.data.get('project_pk')
 
-        data = self.get_data(project_pk=project, sku=sku, scenario_pk=scenario)
-        
+        data = self.get_data(project_pk=project, product=product, scenario_pk=scenario)
+
         if scenario is not None:
-            scenario = ForecastScenario.objects.get(pk=scenario)
-            error_val = data[scenario.error_type]
-            max_date = scenario.max_historical_date
+            scenario_obj = ForecastScenario.objects.get(pk=scenario)
+            error_val = data[scenario_obj.error_type]
+            max_date = scenario_obj.max_historical_date
             date_columns = [col for col in data.columns if '-' in col and len(col.split('-')) == 3]
             index = date_columns.index(str(max_date))
-            values = data[date_columns].values.tolist()    
-            kpis = self.calculate_kpis(predictions_table_name=scenario.predictions_table_name, last_date_index=index, list_date_columns=date_columns, product=sku)
-        
-            final_data =  {
-                "product": f"{sku}",
+            values = data[date_columns].values.tolist()
+            kpis = self.calculate_kpis(predictions_table_name=scenario_obj.predictions_table_name, last_date_index=index, list_date_columns=date_columns, product=product["SKU"])
+
+            final_data = {
+                "product": f"{product['SKU']}",
                 "graphic_forecast": {"dates": date_columns, "values": values[1]},
                 "graphic_historical": {"dates": date_columns, "values": values[0]},
                 "error": max(error_val),
-                "kpis": {"columns": ["YTD", "QTD", "MTD", "YTG", "QTG", "MTG"], "values": kpis[0]},  
+                "kpis": {"columns": ["YTD", "QTD", "MTD", "YTG", "QTG", "MTG"], "values": kpis[0]},
             }
+
+            return Response(final_data, status=status.HTTP_200_OK)
         
-        return Response(final_data, status=status.HTTP_200_OK)
+        return Response({"error": "Scenario not found"}, status=status.HTTP_400_BAD_REQUEST)
+
