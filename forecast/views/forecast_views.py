@@ -55,6 +55,8 @@ class RunModelsViews(APIView):
 
             scenario_id = data.validated_data.get("scenario_id")
             additional_params = request.data.get('additional_params')
+            detect_outliers = request.data.get("detect_outliers")
+            explosive_variable = request.data.get("explosive_variable")
 
             try:
                 # Search for the scenario by ID
@@ -114,7 +116,7 @@ class RunModelsViews(APIView):
 
                 forecast = Forecast(df=df_historical, prediction_periods=pred_p, error_periods=error_periods,
                                     test_periods=test_p, error_method=error_method, seasonal_periods=seasonal_periods, models=models,
-                                    additional_params=additional_params)
+                                    additional_params=additional_params, detect_outliers=detect_outliers, explosive_variable=explosive_variable)
 
                 all_predictions = forecast.run_forecast()
                 all_predictions.to_excel(path_all_models, index=False)

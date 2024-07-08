@@ -103,8 +103,8 @@ class ForecastModels:
         return idx, results
 
     @staticmethod
-    def prophet(idx, row, prediction_periods, additional_params, seasonal_periods, dates):
-        def detect_outliers(series, threshold=3):
+    def prophet(idx, row, prediction_periods, additional_params, seasonal_periods, dates, detect_outliers):
+        def detect_outliers_func(series, threshold=3):
             mean = series.mean()
             std_dev = series.std()
             z_scores = (series - mean) / std_dev
@@ -129,8 +129,9 @@ class ForecastModels:
             uncertainty_samples = 1000
             changepoint_prior_scale = 0.05
         
-        outliers = detect_outliers(df['y'])
-        df['outliers'] = outliers
+        if detect_outliers:
+            outliers = detect_outliers_func(df['y'])
+            df['outliers'] = outliers
 
         model = Prophet(weekly_seasonality=False,
                         yearly_seasonality=seasonal_periods,
@@ -141,8 +142,10 @@ class ForecastModels:
                         )
 
         model.add_seasonality(name='monthly', period=30.5, fourier_order=5)
-        # Exclude outliers during fitting
-        model.fit(df[~df['outliers']])
+
+        if detect_outliers:
+            # Exclude outliers during fitting
+            model.fit(df[~df['outliers']])
 
         future = model.make_future_dataframe(periods=prediction_periods, freq='MS')
         future['floor'] = 0

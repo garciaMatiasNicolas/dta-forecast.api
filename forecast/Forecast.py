@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore")
 class Forecast(object):
 
     def __init__(self, df: pd.DataFrame, prediction_periods: int, test_periods: int, error_periods: int, error_method: str, seasonal_periods: int, 
-                 models: list = None, additional_params=None):
+                models: list = None, additional_params=None, explosive_variable=None, detect_outliers=True):
 
         self.initial_data = df
         self.initial_dates = []
@@ -30,6 +30,8 @@ class Forecast(object):
         self.models = models
         self.date_columns = []
         self.future_dates = []
+        self.explosive_variable = explosive_variable
+        self.detect_outliers = detect_outliers
 
     @staticmethod
     def format_dates(dates):
@@ -99,7 +101,7 @@ class Forecast(object):
         elif model_name == "prophet":
             additional_params = self.additional_params.get("prophet_params", None)
             results = Parallel(n_jobs=round(num_cores))(
-                delayed(ForecastModels.prophet)(idx, row, self.prediction_periods, additional_params, 12, self.initial_dates)
+                delayed(ForecastModels.prophet)(idx, row, self.prediction_periods, additional_params, 12, self.initial_dates, self.detect_outliers)
                 for idx, row in enumerate(data_list, 1))
 
         elif model_name == "decisionTree":

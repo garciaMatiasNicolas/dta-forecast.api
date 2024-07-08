@@ -40,11 +40,9 @@ class FilterDataViews(APIView):
                     else:
                         query = f"SELECT * FROM {table_name} WHERE {query_conditions}"
 
-                    print(query)
-
                     cursor.execute(query)
                     data_rows = cursor.fetchall()
-
+    
                     cursor.execute(f"SHOW COLUMNS FROM {table_name} FROM dtafio;")
                     columns = cursor.fetchall()
                     cols = []
@@ -75,6 +73,7 @@ class FilterDataViews(APIView):
                     actual_data['y'] = values
 
                     final_data = {'actual_data': actual_data, 'other_data': other_data}
+
                     data_per_year = Graphic.graphic_predictions_per_year(final_data, max_date=scenario.max_historical_date)
 
                     return Response({"full_data": final_data, "year_data": data_per_year},
@@ -133,8 +132,6 @@ class GetFiltersView(APIView):
                                 {'CONCAT(SKU, " ", DESCRIPTION)' if filter_name == "SKU" else f'DISTINCT({filter_name})'} 
                             FROM {table_name} {where_clause if len(conditions) > 0 else None}
                         '''
-                        print(query)
-
                         cursor.execute(query)
                         rows = cursor.fetchall()
                         filter_names = []
@@ -164,8 +161,8 @@ class FiltersByGroup(APIView):
         group = request.data.get('group')
         actual_or_predicted = request.data.get('actual_or_predicted')
 
-        columns_to_delete_hsd = ['family', 'region', 'salesman', 'client', 'category', 'sku', 'description',
-                                 'subcategory', 'model']
+        columns_to_delete_hsd = ['Family', 'Region', 'Salesman', 'Client', 'Category', 'SKU', 'Description',
+                                 'Subcategory', 'model']
 
         try:
 
@@ -188,7 +185,7 @@ class FiltersByGroup(APIView):
                     query = f'''SELECT {group}, {sum_columns} FROM {table}
                                     WHERE model {'=' if actual_or_predicted == 'actual' else '!='} "actual" 
                                     GROUP BY {group} '''
-
+                
                     cursor.execute(query)
                     data = cursor.fetchall()
 
@@ -201,6 +198,8 @@ class FiltersByGroup(APIView):
                         category_name = item[0]
                         sales_values = item[1:-1]
                         final_data['y'][category_name] = sales_values
+                    
+                    print(final_data)
 
             return Response(data=final_data, status=status.HTTP_200_OK)
 

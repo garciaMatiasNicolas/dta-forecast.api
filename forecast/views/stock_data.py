@@ -58,10 +58,9 @@ class StockDataView(APIView):
             table_stock = pd.read_sql_table(table_name=stock_data.file_name, con=engine)
 
             if only_traffic_light:
-                print(filter_name)
-                print(filter_value)
                 table_historical = table_historical[table_historical[filter_name] == filter_value]
                 table_stock = table_stock[table_stock[filter_name] == filter_value]
+                # table_forecast = None
 
             tables = {"historical": table_historical, "stock": table_stock, "forecast": table_forecast}
 
@@ -481,6 +480,7 @@ class StockDataView(APIView):
                 final_data = self.calculate_safety_stock(data=data)
 
             if only_traffic_light == "true":
+                print(traffic_light)
                 return Response(data={"traffic_light": traffic_light},
                 status=status.HTTP_200_OK)
             
