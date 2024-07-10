@@ -19,6 +19,12 @@ class ForecastModels:
         model = ''
 
         if model_name == 'holtsWintersExponentialSmoothing':
+            try:
+                seasonal_periods = int(seasonal_periods)
+            except:
+                seasonal_periods = float(seasonal_periods)
+                seasonal_periods = int(seasonal_periods)
+            
             model = ExponentialSmoothing(time_series, seasonal_periods=int(seasonal_periods), trend='add', seasonal='add')
 
         if model_name == 'holtsExponentialSmoothing':
@@ -104,6 +110,13 @@ class ForecastModels:
 
     @staticmethod
     def prophet(idx, row, prediction_periods, additional_params, seasonal_periods, dates, detect_outliers):
+
+        try:
+            seasonal_periods = int(seasonal_periods)
+        except:
+            seasonal_periods = float(seasonal_periods)
+            seasonal_periods = int(seasonal_periods)
+
         def detect_outliers_func(series, threshold=3):
             mean = series.mean()
             std_dev = series.std()
