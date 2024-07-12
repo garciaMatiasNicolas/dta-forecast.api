@@ -159,6 +159,9 @@ class ForecastModels:
         if detect_outliers:
             # Exclude outliers during fitting
             model.fit(df[~df['outliers']])
+        
+        else:
+            model.fit(df)
 
         future = model.make_future_dataframe(periods=prediction_periods, freq='MS')
         future['floor'] = 0
