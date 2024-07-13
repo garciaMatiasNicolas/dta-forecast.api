@@ -125,10 +125,10 @@ class ForecastModels:
     
         df = pd.DataFrame({'ds': pd.to_datetime(dates), 'y': row})
         df['floor'] = 0
-        avg_historical = df['y'].mean()
-        max_cap = avg_historical * 2
+        # avg_historical = df['y'].mean()
+        # max_cap = avg_historical * 2
 
-        df['cap'] = max_cap
+        # df['cap'] = max_cap
 
         if additional_params is not None:
             seasonality_mode = additional_params[0]
@@ -165,7 +165,7 @@ class ForecastModels:
 
         future = model.make_future_dataframe(periods=prediction_periods, freq='MS')
         future['floor'] = 0
-        future['cap'] = max_cap
+        # future['cap'] = max_cap
 
         forecast = model.predict(future)
 
@@ -175,10 +175,10 @@ class ForecastModels:
         train_predictions_df = model.predict(df)
         train_predictions = train_predictions_df['yhat'].tail(len(dates)).values
 
-        future_predictions = forecast['yhat_lower'].tail(prediction_periods).values
+        future_predictions = forecast['yhat'].tail(prediction_periods).values
 
         future_predictions = [max(pred, 0) for pred in future_predictions]
-        future_predictions = [min(pred, max_cap) for pred in future_predictions]
+        # future_predictions = [min(pred, max_cap) for pred in future_predictions]
 
         return idx, list(train_predictions) + list(future_predictions)
 
