@@ -210,19 +210,19 @@ class StockDataView(APIView):
     def calculate_stock(self, data: List[Dict[str, Any]], next_buy_days: int, is_forecast: bool, d, k) -> (
             tuple)[list[dict[str | Any, int | str | datetime | Any]], bool]:
         try:
-            def verify_safety_stock_zero(array: List[Dict[str, Any]]):
-                for product in array:
-                    if product.get("Safety Stock", 0) != 0:
-                        return False
+            # def verify_safety_stock_zero(array: List[Dict[str, Any]]):
+                # for product in array:
+                    # if product.get("Safety Stock", 0) != 0:
+                        # return False
 
-                return True
+                # return True
             
             def round_up(n, dec):
                 factor = n / dec
                 factor = round(factor)
                 return factor * dec
 
-            safety_stock_is_zero = verify_safety_stock_zero(data)
+            safety_stock_is_zero = False
 
             results = []
 
