@@ -147,7 +147,6 @@ class GetFiltersView(APIView):
         else:
             return Response({'error': 'bad_request', 'logs': filters.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class FiltersByGroup(APIView):
 
     @authentication_classes([TokenAuthentication])

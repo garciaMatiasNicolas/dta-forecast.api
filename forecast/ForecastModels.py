@@ -77,7 +77,7 @@ class ForecastModels:
         train_predictions = model_fit.predict(start=0, end=n_train - 1)
         test_predictions = model_fit.predict(start=n_train, end=len(time_series) - 1)
         future_predictions = model_fit.forecast(steps=prediction_periods)
-
+        
         results = list(train_predictions.values) + list(test_predictions.values) + list(future_predictions.values)
 
         return idx, results
@@ -103,7 +103,7 @@ class ForecastModels:
         train_predictions = model_fit.predict(start=0, end=n_train - 1)
         test_predictions = model_fit.predict(start=n_train, end=len(time_series) - 1)
         future_predictions = model_fit.forecast(steps=prediction_periods)
-
+        
         results = list(train_predictions.values) + list(test_predictions.values) + list(future_predictions.values)
 
         return idx, results
@@ -128,7 +128,7 @@ class ForecastModels:
         # avg_historical = df['y'].mean()
         # max_cap = avg_historical * 2
 
-        # df['cap'] = max_cap
+        #df['cap'] = max_cap
 
         if additional_params is not None:
             seasonality_mode = additional_params[0]
@@ -157,15 +157,14 @@ class ForecastModels:
         model.add_seasonality(name='monthly', period=30.5, fourier_order=5)
 
         if detect_outliers:
-            # Exclude outliers during fitting
             model.fit(df[~df['outliers']])
         
         else:
             model.fit(df)
 
         future = model.make_future_dataframe(periods=prediction_periods, freq='MS')
-        future['floor'] = 0
-        # future['cap'] = max_cap
+        # future['floor'] = 0
+        #future['cap'] = max_cap
 
         forecast = model.predict(future)
 

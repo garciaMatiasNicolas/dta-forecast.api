@@ -117,6 +117,7 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
                     raise ValueError("columns_not_in_date_type")
 
         table_name = file_name
+        dataframe = dataframe.applymap(lambda x: x.strip() if isinstance(x, str) else x)
 
         if model_type not in models_allowed:
             raise ValueError("model_not_allowed")
@@ -142,6 +143,7 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
         new_route = obtain_file_route(route=route_file)
         dataframe = pd.read_excel(new_route)
         dataframe.astype('str')
+        dataframe = dataframe.applymap(lambda x: x.strip() if isinstance(x, str) else x)
         dataframe.fillna(0, inplace=True)
         table_name = file_name
 

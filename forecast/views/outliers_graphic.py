@@ -109,6 +109,7 @@ class FiltersHistoricalData(APIView):
     @authentication_classes([TokenAuthentication])
     @permission_classes([IsAuthenticated])
     def post(self, request):
+        print(request.data)
         project_id = request.data.get("project")
         filter_name = request.data.get("filter_name")
 

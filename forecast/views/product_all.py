@@ -21,14 +21,18 @@ class AllProductView(APIView):
         # Construir la parte de la consulta WHERE de forma dinámica
         conditions = " AND ".join([f"{key} = '{value}'" if isinstance(value, str) else f"{key} = {value}" for key, value in cleaned_product.items()])
 
-        if scenario_pk is not None:
-            table = ForecastScenario.objects.get(pk=scenario_pk)
-            query = f"SELECT * FROM {table.predictions_table_name} WHERE {conditions};"
-            print(query)
-        else:
+        if scenario_pk is False or scenario_pk is None:
             table = FileRefModel.objects.filter(project_id=project_pk, model_type_id=1).first()
             query = f"SELECT * FROM {table.file_name} WHERE {conditions};"
-
+        
+        else:
+            adjusted_conditions = " AND ".join([
+                f"{key} = 0" if (isinstance(value, str) and value == '') else f"{key} = '{value}'" if isinstance(value, str) else f"{key} = {value}"
+                for key, value in cleaned_product.items()
+            ])
+            table = ForecastScenario.objects.get(pk=scenario_pk)
+            query = f"SELECT * FROM {table.predictions_table_name} WHERE {adjusted_conditions};"
+        
         data = pd.read_sql_query(query, engine)
         return data
     
@@ -152,10 +156,24 @@ class AllProductView(APIView):
         scenario = request.data.get('scenario_pk')
         product = request.data.get('product')  # Asegúrate de que 'product' es un diccionario con los campos correctos
         project = request.data.get('project_pk')
-
+        
         data = self.get_data(project_pk=project, product=product, scenario_pk=scenario)
 
-        if scenario is not None:
+        if scenario is None or scenario is False:
+            date_columns = [col for col in data.columns if '-' in col and len(col.split('-')) == 3]
+            values = data[date_columns].values.tolist()
+            final_data = {
+                "product": f"{product['SKU']}",
+                "graphic_forecast": {"dates": date_columns, "values": []},
+                "graphic_historical": {"dates": date_columns, "values": values[0]},
+                "error": "",
+                "kpis": {"columns": [], "values": []},
+            } 
+
+            return Response(final_data, status=status.HTTP_200_OK)
+        
+        else:
+            print(data)
             scenario_obj = ForecastScenario.objects.get(pk=scenario)
             error_val = data[scenario_obj.error_type]
             max_date = scenario_obj.max_historical_date
@@ -173,6 +191,7 @@ class AllProductView(APIView):
             }
 
             return Response(final_data, status=status.HTTP_200_OK)
-        
-        return Response({"error": "Scenario not found"}, status=status.HTTP_400_BAD_REQUEST)
+ 
+                
+        # return Response({"error": "Scenario not found"}, status=status.HTTP_400_BAD_REQUEST)
 
