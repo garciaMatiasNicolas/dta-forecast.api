@@ -243,7 +243,7 @@ class StockDataView(APIView):
     @staticmethod
     def calculate_optimal_batch(c, d, k):
         c = c if c >= 0 else 0 * 360
-        d = int(d)
+        d = int(d)/100
         k = float(f'0.{k}')
         EOQ = math.sqrt((2 * c * d) / k)
         return EOQ
@@ -304,11 +304,14 @@ class StockDataView(APIView):
 
                 except OverflowError:
                     next_buy = ""
+                
 
                 if days_of_coverage == 9999:
                     stock_status = "Obsoleto"
                     if available_stock != 0:
                         characterization = "0-Con stock sin ventas"
+                    else:
+                        characterization = "Sin stock"
                 elif days_of_coverage > 360:
                     stock_status = 'Alto sobrestock'
                     characterization = "1-Más de 360 días"
@@ -330,6 +333,8 @@ class StockDataView(APIView):
                 else:
                     stock_status = 'Stock negativo'
                     characterization = "Sin stock"
+             
+                print(f"SKU {item['SKU']}: Caracterizacion {characterization}")
     
                 next_buy = next_buy.strftime('%Y-%m-%d') if isinstance(next_buy, datetime) else next_buy
                 how_much_vs_lot_sizing = round_up(how_much, int(lot_sizing)) if int(lot_sizing) != 0.0 else how_much
@@ -708,3 +713,51 @@ class StockByProduct(APIView):
 
         else:
             return Response(data={'error': 'historical_data_not_found'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
+
+"""
+@staticmethod
+def get_filtered_data(project_pk: int, filters: list, is_forecast: bool, scenario: int = None):
+    conditions = [
+        f"{filter_name} = '{filter_value}'"
+        for filter_dict in filters
+        for filter_name, filter_value in filter_dict.items()
+    ]
+
+    if is_forecast:
+        data = ForecastScenario.objects.get(pk=scenario)
+        query_for_data = f"SELECT * FROM {data.predictions_table_name} WHERE " + " AND ".join(conditions)
+        
+    else:
+        data = FileRefModel.objects.filter(project_id=project_pk, model_type_id=1).first()
+        query_for_data = f"SELECT * FROM {data.file_name} WHERE " + " AND ".join(conditions)
+
+    stock_data = FileRefModel.objects.filter(project_id=project_pk, model_type_id=4).first()
+
+    if data is None:
+        raise ValueError("Data_not_found")
+
+    if stock_data is None:
+        raise ValueError("Stock_data_not_found")
+
+
+    query_for_stock = f"SELECT * FROM {stock_data.file_name} WHERE " + " AND ".join(conditions)
+
+    with connection.cursor() as cursor:
+        cursor.execute(query_for_data)
+        historical_rows = cursor.fetchall()
+        columns_historical = [desc[0] for desc in cursor.description]
+        df_historical = pd.DataFrame(historical_rows, columns=columns_historical)
+
+        cursor.execute(query_for_stock)
+        stock_rows = cursor.fetchall()
+        columns_stock = [desc[0] for desc in cursor.description]
+        df_stock = pd.DataFrame(stock_rows, columns=columns_stock)
+
+    return df_historical, df_stock 
+"""
