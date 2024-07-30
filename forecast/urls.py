@@ -8,6 +8,7 @@ from .views.exploration_variables_view import (AllocationMatrixView, HistoricalD
                                                GetExogVars, ExogenousVariablesTable, ExogenousVariablesGraph, )
 from .views.outliers_graphic import GraphicOutliersView, FiltersHistoricalData
 from .views.product_all import AllProductView
+from .views.conversion_forecast import ConversionForecast
 
 test_model = RunModelsViews.as_view()
 filter_data = FilterDataViews.as_view()
@@ -29,6 +30,7 @@ exog_graph = ExogenousVariablesGraph.as_view()
 stock_data = StockDataView.as_view()
 stock_by_product = StockByProduct.as_view()
 product_all = AllProductView.as_view()
+conversion = ConversionForecast.as_view()
 
 urlpatterns = [
     path('test-model', test_model, name='test_model'),
@@ -50,5 +52,6 @@ urlpatterns = [
     path('get-outliers', outliers, name='outliers'),
     path('stock-data/', stock_data, name='stock-data'),
     path('stock-product/', stock_by_product, name='stock_by_product'),
-    path('product-all', product_all, name="product_all")
+    path('product-all', product_all, name="product_all"),
+    path('conversion-forecast/', conversion, name="conversion")
 ]

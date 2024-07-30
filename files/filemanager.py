@@ -23,7 +23,7 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
     models_allowed = ["historical_data", "historical_exogenous_variables", "projected_exogenous_variables", "stock_data"]
     
     cols_stock_data = ["Stock", "Sales Order Pending Deliverys", "Safety Lead Time (days)", "Safety stock (days)", 
-    "Lead Time", "Price", "EOQ (Economical order quantity)", "Service Level", "Desv Est Lt Days", "Purchase Order", 
+    "Lead Time", "Cost Price", "Price", "EOQ (Economical order quantity)", "Service Level", "Desv Est Lt Days", "Purchase Order",  
     "Lot Sizing", "ABC", "XYZ", "Purchase unit", "Make to order", "Slow moving"]
 
     cols_hsd = ["Starting Year", "Starting Period", "Periods Per Year", "Periods Per Cycle"]

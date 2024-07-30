@@ -172,8 +172,6 @@ class StockDataView(APIView):
 
             result_list = result_df.to_dict(orient='records')
 
-            print(result_list)
-
             return result_list
 
         except Exception as err:
