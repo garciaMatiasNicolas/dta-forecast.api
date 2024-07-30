@@ -149,7 +149,11 @@ class StockDataView(APIView):
 
                 # Unir los resultados históricos y de pronósticos en una sola línea por producto
                 combined_df = pd.merge(historical_stats_df, forecast_stats_df, on=category_columns, suffixes=('_historical', '_forecast'), how='outer')
+            
             else:
+                for col in ['total_sales_forecast', 'avg_row_forecast', 'desv_forecast', 'coefficient_of_variation_forecast', 'stock_or_request_forecast', 'avg_sales_per_day_forecast', 'desv_per_day_forecast']:
+                    historical_stats_df[col] = 0.0 if 'stock_or_request_forecast' != col else 'request'
+
                 combined_df = historical_stats_df
             
             stock[category_columns] = stock[category_columns].astype(str)
@@ -167,6 +171,8 @@ class StockDataView(APIView):
             result_df = result_df.drop_duplicates(subset=category_columns)
 
             result_list = result_df.to_dict(orient='records')
+
+            print(result_list)
 
             return result_list
 
