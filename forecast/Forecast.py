@@ -54,7 +54,6 @@ class Forecast(object):
         self.date_columns = self.date_columns + future_dates
         self.future_dates = future_dates
 
-        formatted_data.fillna(0.0, inplace=True)
         return formatted_data
 
     def format_result_data(self, forecast_df: pd.DataFrame, actual_df: pd.DataFrame):

@@ -88,7 +88,7 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
 
             stock_cols = base_cols + cols_stock_data
             are_all_columns, message = validate_columns(dataframe=dataframe, required_columns=stock_cols)
-            print(message)
+
             if not are_all_columns:
                 raise ValueError(message)
 
@@ -144,8 +144,9 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
         dataframe = pd.read_excel(new_route)
         dataframe.astype('str')
         dataframe = dataframe.applymap(lambda x: x.strip() if isinstance(x, str) else x)
-        dataframe.fillna(0, inplace=True)
         table_name = file_name
+        first_8_columns = dataframe.columns[:8]
+        dataframe[first_8_columns] = dataframe[first_8_columns].fillna('null')
 
         if model_type == "historical_data":
             dataframe.to_sql(table_name, con=engine, if_exists='replace', index=False)

@@ -146,6 +146,9 @@ class StockDataView(APIView):
 
                 forecast_stats_df = pd.DataFrame(forecast_results)
                 forecast_stats_df[category_columns] = forecast[category_columns].astype(str)
+              
+                for col in category_columns:
+                    forecast_stats_df[col] = forecast_stats_df[col].apply(lambda x: "null" if x == 0.0 or x == 0 else x)
 
                 # Unir los resultados históricos y de pronósticos en una sola línea por producto
                 combined_df = pd.merge(historical_stats_df, forecast_stats_df, on=category_columns, suffixes=('_historical', '_forecast'), how='outer')
@@ -171,7 +174,6 @@ class StockDataView(APIView):
             result_df = result_df.drop_duplicates(subset=category_columns)
 
             result_list = result_df.to_dict(orient='records')
-
             return result_list
 
         except Exception as err:
@@ -339,6 +341,8 @@ class StockDataView(APIView):
                 how_much_vs_lot_sizing = max(how_much_vs_lot_sizing, optimal_batch)
                 final_how_much = available_stock - sales_order + purchase_order if make_to_order == 'MTO' else round(how_much_vs_lot_sizing) if buy == 'Si' else 0
                 final_buy = ('Si' if available_stock - sales_order + purchase_order < 0 else 'No') if make_to_order == 'MTO' else buy
+                cost_price = float(item["Cost Price"])
+                valued_cost = round(cost_price*how_much_vs_lot_sizing,2)
 
                 optimal_batch_calc = self.calculate_optimal_batch(c=avg_sales, d=d, k=k)
                 
@@ -407,6 +411,7 @@ class StockDataView(APIView):
                     'Compra 60 días' : 0 if make_to_order == "MTO" or is_obs == "OB" else locale.format_string("%d",sixty_days, grouping=True),
                     'Compra 90 días': 0 if make_to_order == "MTO" or is_obs == "OB" else locale.format_string("%d",ninety_days, grouping=True),
                     'Estado': str(stock_status),
+                    'Compra Valorizada': locale.format_string("%d", valued_cost, grouping=True) if buy == 'Si' and is_obs != 'OB' else "0",
                     'Venta valorizada': locale.format_string("%d", int(round(price * avg_sales)), grouping=True),
                     'Valorizado': locale.format_string("%d", int(round(price * stock)), grouping=True),
                     'Demora en dias': str(lead_time),
@@ -419,7 +424,8 @@ class StockDataView(APIView):
                     'Stock seguridad en dias': str(safety_stock),
                     'Unidad de compra': purchase_unit,
                     'Lote de compra': lot_sizing,
-                    'Precio unitario': price,
+                    'Precio unitario': locale.format_string("%d", round(price), grouping=True),
+                    "Costo del producto": locale.format_string("%d", round(cost_price), grouping=True),
                     'MTO': make_to_order if make_to_order == 'MTO' else '',
                     'OB': is_obs if is_obs == 'OB' else '',
                     'ABC': abc_class,

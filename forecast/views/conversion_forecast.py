@@ -31,62 +31,56 @@ class ConversionForecast(APIView):
             scenario = ForecastScenario.objects.get(pk=scenario_id)
             
             stock_data = FileRefModel.objects.filter(project_id=scenario.project, model_type_id=4).first()
-            query_stock = f"SELECT Family, Region, Salesman, Client, Category, Subcategory, SKU, Description, `Cost Price` FROM {stock_data.file_name}"
-            stock = pd.read_sql_query(sql=query_stock, con=engine)
+            stock_table = stock_data.file_name
             
             predictions_table = scenario.predictions_table_name
             max_historical_date = scenario.max_historical_date
             
             query_predictions = f"SELECT * FROM {predictions_table} WHERE model != 'actual'"
             predictions = pd.read_sql_query(sql=query_predictions, con=engine)
-            
-            # Convertir los valores 0.0 a "null" en las columnas clave de predictions
-            key_columns = ["Family", "Region", "Salesman", "Client", "Category", "Subcategory", "SKU", "Description"]
-            for col in key_columns:
-                predictions[col] = predictions[col].apply(lambda x: "null" if x == 0.0 else x)
-            
+
             # Identificar las columnas de fecha desde max_historical_date hasta la última fecha
             date_columns = [col for col in predictions.columns if '-' in col and len(col.split('-')) == 3]
             index = date_columns.index(str(max_historical_date))
             selected_date_columns = date_columns[index:]
+            date_columns_sql = ", ".join([f"ROUND(A.`{col}` * B.`Cost Price`, 2) AS `{col}`" for col in selected_date_columns])
             
-            # Seleccionar las columnas necesarias
-            data_cols = key_columns + selected_date_columns
+            if group_by_category is None or group_by_category == "SKU":
+                query_predictions = f"""
+                    SELECT 
+                        A.Family AS Familia,
+                        A.Region AS Region,
+                        A.Salesman AS Vendedor,
+                        A.Client AS Cliente,
+                        A.Category AS Categoria,
+                        A.Subcategory AS Subcategoria,
+                        A.SKU,
+                        A.Description AS Descripcion,
+                        A.model AS Modelo, 
+                        ROUND(B.`Cost Price`, 2) AS "Cost Price", 
+                        {date_columns_sql}
+                        FROM {predictions_table} A JOIN {stock_table} B ON
+                        A.Family = B.Family AND
+                        A.Region = B.Region AND
+                        A.Salesman = B.Salesman AND
+                        A.Client = B.Client AND
+                        A.Category = B.Category AND
+                        A.Subcategory = B.Subcategory AND
+                        A.SKU = B.SKU AND
+                        A.Description = B.Description AND
+                        A.model != "actual";
+                """
+
+                predictions = pd.read_sql_query(sql=query_predictions, con=engine)
+
+                # Convertir el DataFrame en una lista de diccionarios
+                result = predictions.to_dict(orient='records')
             
-            # Filtrar las columnas necesarias de predictions
-            processed_predictions = predictions[data_cols]
-            
-            # Realizar el merge entre stock y processed_predictions utilizando las columnas clave
-            merged_data = processed_predictions.merge(stock, on=key_columns, how='left')
-            
-            # Convertir las columnas de fechas y `Cost Price` a tipos numéricos
-            for date_col in selected_date_columns:
-                merged_data[date_col] = pd.to_numeric(merged_data[date_col], errors='coerce').fillna(0)
-            merged_data['Cost Price'] = pd.to_numeric(merged_data['Cost Price'], errors='coerce').fillna(0)
-            
-            # Multiplicar las columnas de fechas por el precio de costo correspondiente
-            for date_col in selected_date_columns:
-                merged_data[date_col] = merged_data[date_col] * merged_data['Cost Price']
-            
-            # Agrupar por una categoría si se especifica
-            if group_by_category:
-                grouped_data = merged_data.groupby(group_by_category)[selected_date_columns].sum().reset_index()
             else:
-                grouped_data = merged_data[key_columns + selected_date_columns]
-            
-            # Formatear los números con separadores de miles
-            for date_col in selected_date_columns:
-                grouped_data[date_col] = grouped_data[date_col].apply(lambda x: locale.format_string("%d", x, grouping=True))
-            
-            # Convertir a formato de diccionario
-            result = grouped_data.to_dict(orient='records')
-            
-            # Convertir los valores 0.0 a "null"
-            for record in result:
-                for key, value in record.items():
-                    if value == 0.0 and key in key_columns:
-                        record[key] = "null"
-            
+                
+                result = [{"": ""}]
+
+
             return Response(result, status=status.HTTP_200_OK)
         
         except ForecastScenario.DoesNotExist:
