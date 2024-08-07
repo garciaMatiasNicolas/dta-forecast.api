@@ -34,6 +34,7 @@ class AllProductView(APIView):
             query = f"SELECT * FROM {table.predictions_table_name} WHERE {adjusted_conditions};"
         
         data = pd.read_sql_query(query, engine)
+
         return data
     
     @staticmethod
@@ -173,7 +174,6 @@ class AllProductView(APIView):
             return Response(final_data, status=status.HTTP_200_OK)
         
         else:
-            print(data)
             scenario_obj = ForecastScenario.objects.get(pk=scenario)
             error_val = data[scenario_obj.error_type]
             max_date = scenario_obj.max_historical_date
@@ -181,17 +181,14 @@ class AllProductView(APIView):
             index = date_columns.index(str(max_date))
             values = data[date_columns].values.tolist()
             kpis = self.calculate_kpis(predictions_table_name=scenario_obj.predictions_table_name, last_date_index=index, list_date_columns=date_columns, product=product["SKU"])
-
+            
             final_data = {
                 "product": f"{product['SKU']}",
                 "graphic_forecast": {"dates": date_columns, "values": values[1]},
                 "graphic_historical": {"dates": date_columns, "values": values[0]},
-                "error": max(error_val),
+                "error": str(max(error_val)),
                 "kpis": {"columns": ["YTD", "QTD", "MTD", "YTG", "QTG", "MTG"], "values": kpis[0]},
             }
 
             return Response(final_data, status=status.HTTP_200_OK)
  
-                
-        # return Response({"error": "Scenario not found"}, status=status.HTTP_400_BAD_REQUEST)
-

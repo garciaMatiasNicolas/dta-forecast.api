@@ -24,7 +24,7 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
     
     cols_stock_data = ["Stock", "Sales Order Pending Deliverys", "Safety Lead Time (days)", "Safety stock (days)", 
     "Lead Time", "Cost Price", "Price", "EOQ (Economical order quantity)", "Service Level", "Desv Est Lt Days", "Purchase Order",  
-    "Lot Sizing", "ABC", "XYZ", "Purchase unit", "Make to order", "Slow moving"]
+    "Lot Sizing", "ABC", "XYZ", "Purchase unit", "Make to order", "Slow moving", "DRP lead time", "DRP safety stock (days)", "DRP Lot sizing"]
 
     cols_hsd = ["Starting Year", "Starting Period", "Periods Per Year", "Periods Per Cycle"]
 
@@ -152,4 +152,5 @@ def save_dataframe(route_file: str, file_name: str, model_type: str, wasSaved: b
             dataframe.to_sql(table_name, con=engine, if_exists='replace', index=False)
             return "succeed"
     
+
 
