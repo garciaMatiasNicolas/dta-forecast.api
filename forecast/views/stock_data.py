@@ -384,6 +384,16 @@ class StockDataView(APIView):
                 except:
                     ninety_days = 0
 
+                try:
+                    drp_lead_time = float(item["DRP lead time"])
+                    drp_safety_stock = float(item["DRP safety stock (days)"])
+                    drp_lot_sizing =  float(item["DRP Lot sizing"])
+                
+                except KeyError:
+                    drp_lead_time = "Falta de subir en Stock data"
+                    drp_safety_stock = "Falta de subir en Stock data"
+                    drp_lot_sizing =  "Falta de subir en Stock data"
+
                 stock = {
                     'Familia': item['Family'],
                     'Categoria': item['Category'],
@@ -414,9 +424,9 @@ class StockDataView(APIView):
                     'Venta valorizada': locale.format_string("%d", int(round(price * avg_sales)), grouping=True),
                     'Valorizado': locale.format_string("%d", int(round(price * stock)), grouping=True),
                     'Demora en dias': str(lead_time),
-                    'Demora en dias (DRP)': float(item["DRP lead time"]),
-                    'Stock de seguridad (DRP)': float(item["DRP safety stock (days)"]),
-                    'Lote de compra (DRP)': float(item["DRP Lot sizing"]),
+                    'Demora en dias (DRP)': drp_lead_time,
+                    'Stock de seguridad (DRP)': drp_safety_stock,
+                    'Lote de compra (DRP)': drp_lot_sizing,
                     'Fecha próx. compra': str(next_buy) if days_of_coverage != 9999 else "---",
                     'Caracterización': characterization if merge == 'both' else ('No encontrado en Stock Data' if merge == 'left_only' else 'No encontrado en Historical Data'),
                     'Sobrante (unidades)': locale.format_string("%d", overflow_units, grouping=True),
